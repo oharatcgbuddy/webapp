@@ -1,0 +1,49 @@
+@import "tailwindcss";
+
+/* Neo-brutalism: bordi spessi, ombre dure, colori saturi */
+:root {
+  --paper: #fff4d6;
+  --ink: #111111;
+  --yellow: #ffd23f;
+  --red: #ff5a5f;
+  --blue: #4d9de0;
+  --green: #3bb273;
+  --pink: #ff8fd8;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-brand-yellow: var(--yellow);
+  --color-brand-red: var(--red);
+  --color-brand-blue: var(--blue);
+  --color-brand-green: var(--green);
+  --color-brand-pink: var(--pink);
+  --font-sans: var(--font-space-grotesk), system-ui, sans-serif;
+  --shadow-brutal: 4px 4px 0 0 var(--ink);
+  --shadow-brutal-sm: 2px 2px 0 0 var(--ink);
+}
+
+html {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+@layer components {
+  .brutal-card {
+    @apply border-[3px] border-ink bg-white shadow-brutal;
+  }
+  .brutal-btn {
+    @apply inline-flex items-center justify-center gap-2 border-[3px] border-ink bg-brand-yellow px-4 py-3 font-bold shadow-brutal transition-transform;
+  }
+  .brutal-btn:active {
+    transform: translate(4px, 4px);
+    box-shadow: none;
+  }
+}

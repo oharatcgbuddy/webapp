@@ -27,7 +27,11 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
       .neq("status", "cancelled")
       .order("starts_at", { ascending: false })
       .limit(100),
-    supabase.schema("onepiece").from("leaders").select("card_code, name").order("card_code"),
+    supabase
+      .schema("onepiece")
+      .from("leaders")
+      .select("card_code, name, image_path, meta_position")
+      .order("card_code"),
   ]);
 
   const options = (tournaments ?? []).map((t) => ({

@@ -41,7 +41,7 @@ async function TrackLoader() {
   const op = supabase.schema("onepiece");
 
   const [{ data: leaders }, { data: open, error }] = await Promise.all([
-    op.from("leaders").select("card_code, name").order("card_code"),
+    op.from("leaders").select("card_code, name, image_path, meta_position").order("card_code"),
     supabase
       .from("participations")
       .select("id, standalone_label, tournaments(title)")

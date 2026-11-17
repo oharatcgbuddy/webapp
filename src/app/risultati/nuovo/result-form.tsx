@@ -2,9 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { saveResult, type ActionState } from "./actions";
+import { LeaderPicker, type LeaderOpt } from "../track/leader-picker";
 
 type TournamentOpt = { id: string; label: string };
-type LeaderOpt = { card_code: string; name: string };
 type MatchRow = {
   result: "win" | "loss" | "draw";
   on_play: "" | "yes" | "no";
@@ -82,17 +82,9 @@ export function ResultForm({
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        <label className={label}>
-          Leader (facoltativo)
-          <select name="leader_code" className={field} defaultValue="">
-            <option value="">— nessuno —</option>
-            {leaders.map((l) => (
-              <option key={l.card_code} value={l.card_code}>
-                {l.card_code} · {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {leaders.length > 0 && (
+          <LeaderPicker name="leader_code" label="Leader (facoltativo)" leaders={leaders} required={false} />
+        )}
         {leaders.length === 0 && (
           <p className="text-sm">L&apos;elenco dei leader sarà disponibile con il catalogo carte.</p>
         )}

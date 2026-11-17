@@ -46,6 +46,11 @@ async function Account() {
           Area admin · richieste negozi
         </Link>
       )}
+      {me?.is_admin && (
+        <Link href="/admin/meta" className="brutal-btn w-full bg-brand-blue">
+          Area admin · leader in meta
+        </Link>
+      )}
       <form action={signOut}>
         <button type="submit" className="brutal-btn w-full bg-brand-red">
           Esci

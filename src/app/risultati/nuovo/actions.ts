@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
 import { romeLocalToIso } from "@/lib/datetime";
 import { resolveBandaiTournament } from "@/lib/tournament-link";
+import { cleanNote } from "@/lib/note-text";
 
 export type ActionState = { error?: string };
 
@@ -28,9 +29,11 @@ type MatchInput = {
   result: "win" | "loss" | "draw";
   on_play: boolean | null;
   opponent_name: string | null;
+  notes: string | null;
 };
 
-function parseMatches(raw: string): MatchInput[] | null {
+// null = formato non valido; { error } = una nota non ammessa (con il motivo da mostrare).
+function parseMatches(raw: string): MatchInput[] | { error: string } | null {
   if (!raw) return [];
   try {
     const arr: unknown = JSON.parse(raw);
@@ -40,7 +43,10 @@ function parseMatches(raw: string): MatchInput[] | null {
       if (typeof item !== "object" || item === null) return null;
       const m = item as Record<string, unknown>;
       if (m.result !== "win" && m.result !== "loss" && m.result !== "draw") return null;
+      const note = cleanNote(typeof m.notes === "string" ? m.notes.slice(0, 1000) : "");
+      if ("error" in note) return { error: `Round ${out.length + 1}: ${note.error}` };
       out.push({
+        notes: note.value,
         result: m.result,
         on_play: m.on_play === "yes" ? true : m.on_play === "no" ? false : null,
         opponent_name:
@@ -79,6 +85,7 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
   if (matches === null) return { error: "Match non validi." };
+  if ("error" in matches) return { error: matches.error };
   if (placement !== null && playersCount !== null && placement > playersCount) {
     return { error: "Il piazzamento non può superare il numero di giocatori." };
   }

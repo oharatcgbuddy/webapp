@@ -5,7 +5,12 @@ import { saveResult, type ActionState } from "./actions";
 
 type TournamentOpt = { id: string; label: string };
 type LeaderOpt = { card_code: string; name: string };
-type MatchRow = { result: "win" | "loss" | "draw"; on_play: "" | "yes" | "no"; opponent_name: string };
+type MatchRow = {
+  result: "win" | "loss" | "draw";
+  on_play: "" | "yes" | "no";
+  opponent_name: string;
+  notes: string;
+};
 
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
 const label = "block text-sm font-bold uppercase";
@@ -147,6 +152,15 @@ export function ResultForm({
               placeholder="Avversario (facoltativo)"
               className={field}
             />
+            <input
+              aria-label={`Nota round ${i + 1}`}
+              value={m.notes}
+              maxLength={140}
+              autoComplete="off"
+              onChange={(e) => update(i, { notes: e.target.value })}
+              placeholder="Nota breve (facoltativa, max 140)"
+              className={field}
+            />
             <button
               type="button"
               onClick={() => setMatches((rows) => rows.filter((_, j) => j !== i))}
@@ -160,7 +174,7 @@ export function ResultForm({
           <button
             type="button"
             className="brutal-btn w-full bg-white"
-            onClick={() => setMatches((rows) => [...rows, { result: "win", on_play: "", opponent_name: "" }])}
+            onClick={() => setMatches((rows) => [...rows, { result: "win", on_play: "", opponent_name: "", notes: "" }])}
           >
             + Aggiungi round
           </button>

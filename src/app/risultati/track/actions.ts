@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
 import { resolveBandaiTournament } from "@/lib/tournament-link";
+import { cleanNote } from "@/lib/note-text";
 
 export type ActionState = { error?: string };
 
@@ -183,6 +184,9 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
   if (!opponent) return { error: "Scegli il leader avversario." };
   if (dice !== "won" && dice !== "lost") return { error: "Indica se hai vinto il dado." };
   if (result !== "win" && result !== "loss" && result !== "draw") return { error: "Indica l'esito del round." };
+  // Si legge più lungo del massimo per accorgersi dei testi troppo lunghi invece di tagliarli in silenzio.
+  const note = cleanNote(text(fd, "notes", 1000));
+  if ("error" in note) return { error: note.error };
 
   const op = supabase.schema("onepiece");
   const { data: last } = await op
@@ -201,6 +205,7 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
     opponent_leader_code: opponent,
     won_dice: dice === "won",
     result,
+    notes: note.value,
   });
   if (error) {
     if (error.code === "23505") return { error: "Round già registrato: aggiorna la pagina." };

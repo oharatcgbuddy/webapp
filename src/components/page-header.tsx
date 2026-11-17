@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <header className="flex items-center justify-between gap-3 border-b-[3px] border-ink bg-brand-yellow px-4 pb-4 pt-[max(1.5rem,env(safe-area-inset-top))]">
+    <header className="flex items-center justify-between gap-3 border-y-[3px] border-ink bg-brand-yellow px-4 pb-4 pt-[max(1.5rem,env(safe-area-inset-top))]">
       <div className="min-w-0">
         <h1 className="text-3xl font-black uppercase tracking-tight">{title}</h1>
         {subtitle && <p className="mt-1 text-sm font-medium">{subtitle}</p>}

@@ -54,7 +54,7 @@ function TournamentList({ rows, empty }: { rows: TournamentRow[]; empty: string 
       {rows.map((t) => (
         <li key={t.id} className="border-[3px] border-ink bg-white p-3">
           <p className="text-xs font-bold uppercase">{dateFmt.format(new Date(t.starts_at))}</p>
-          <Link href={`/tornei/${t.id}`} className="font-black underline decoration-[3px]">
+          <Link href={`/onepiece/tornei/${t.id}`} className="font-black underline decoration-[3px]">
             {t.title}
           </Link>
           {t.format_slug && <span className="ml-2 text-xs font-bold">{t.format_slug}</span>}

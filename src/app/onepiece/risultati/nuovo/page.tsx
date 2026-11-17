@@ -49,7 +49,7 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
   );
 }
 
-export default function NuovoRisultatoPage({ searchParams }: PageProps<"/risultati/nuovo">) {
+export default function NuovoRisultatoPage({ searchParams }: PageProps<"/onepiece/risultati/nuovo">) {
   return (
     <>
       <PageHeader title="Nuovo risultato" subtitle="One Piece" />

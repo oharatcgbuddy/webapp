@@ -52,8 +52,9 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
     supabase
       .from("participations")
       .select(
-        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, notes, closed_at, tournaments(id, title)",
+        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, notes, closed_at, tournaments(id, title), tcgs!inner(slug)",
       )
+      .eq("tcgs.slug", "onepiece")
       .eq("id", id)
       .maybeSingle()
       .overrideTypes<Detail, { merge: false }>(),
@@ -71,7 +72,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   if (!data) notFound();
 
   const isOwner = auth.user?.id === data.user_id;
-  if (!data.closed_at && isOwner) redirect("/risultati/track");
+  if (!data.closed_at && isOwner) redirect("/onepiece/risultati/track");
 
   const [{ data: details }, { data: matchData }] = await Promise.all([
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", id).maybeSingle(),
@@ -182,7 +183,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-export default function ResultPage({ params }: PageProps<"/risultati/[id]">) {
+export default function ResultPage({ params }: PageProps<"/onepiece/risultati/[id]">) {
   return (
     <>
       <PageHeader title="Risultato" subtitle="Dettaglio torneo" />

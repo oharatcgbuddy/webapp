@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { DEFAULT_TCG, TCGS } from "@/lib/tcgs";
 
 // Rotte accessibili senza login.
 const PUBLIC_PREFIXES = ["/login", "/auth", "/manifest", "/icon"];
@@ -37,6 +38,14 @@ export async function proxy(request: NextRequest) {
   if (!isLoggedIn && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Con un solo gioco attivo la scelta del gioco non serve: si va dritti alla sua home.
+  // La scelta resta raggiungibile con /?scegli=1 e compare da sola quando i giochi saranno più di uno.
+  if (pathname === "/" && TCGS.length === 1 && !request.nextUrl.searchParams.has("scegli")) {
+    const url = request.nextUrl.clone();
+    url.pathname = `/${DEFAULT_TCG}`;
     return NextResponse.redirect(url);
   }
 

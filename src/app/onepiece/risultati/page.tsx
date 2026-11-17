@@ -48,7 +48,8 @@ async function Results() {
 
   const { data, error } = await supabase
     .from("participations")
-    .select("id, played_on, standalone_label, placement, players_count, wins, losses, draws, tournaments(title)")
+    .select("id, played_on, standalone_label, placement, players_count, wins, losses, draws, tournaments(title), tcgs!inner(slug)")
+    .eq("tcgs.slug", "onepiece")
     .eq("user_id", auth.user?.id ?? "")
     .not("closed_at", "is", null) // i track in corso si vedono solo in /risultati/track
     .order("played_on", { ascending: false })
@@ -126,7 +127,7 @@ async function Results() {
           <li key={r.id} className="brutal-card p-4">
             <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(r.played_on))}</p>
             <h2 className="text-lg font-black leading-tight">
-              <Link href={`/risultati/${r.id}`} className="underline decoration-[3px]">
+              <Link href={`/onepiece/risultati/${r.id}`} className="underline decoration-[3px]">
                 {r.tournaments?.title ?? r.standalone_label}
               </Link>
             </h2>
@@ -152,10 +153,10 @@ export default function RisultatiPage() {
     <>
       <PageHeader title="Miei risultati" subtitle="Storico e statistiche" />
       <main className="space-y-4 p-4">
-        <Link href="/risultati/track" className="brutal-btn w-full bg-brand-green">
+        <Link href="/onepiece/risultati/track" className="brutal-btn w-full bg-brand-green">
           ▶ Track torneo live
         </Link>
-        <Link href="/risultati/nuovo" className="brutal-btn w-full bg-white">
+        <Link href="/onepiece/risultati/nuovo" className="brutal-btn w-full bg-white">
           + Aggiungi a posteriori
         </Link>
         <Suspense fallback={<p>Caricamento…</p>}>

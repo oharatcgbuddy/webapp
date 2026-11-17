@@ -79,8 +79,9 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
     .select(
       `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status, external_id,
        shops (slug, name, address, city, province, phone, website),
-       tcgs (name)`,
+       tcgs!inner (name, slug)`,
     )
+    .eq("tcgs.slug", "onepiece")
     .eq("id", id)
     .maybeSingle()
     .overrideTypes<TournamentDetail, { merge: false }>();
@@ -177,14 +178,14 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
-      <Link href={`/risultati/nuovo?torneo=${data.id}`} className="brutal-btn w-full bg-brand-green">
+      <Link href={`/onepiece/risultati/nuovo?torneo=${data.id}`} className="brutal-btn w-full bg-brand-green">
         Aggiungi il mio risultato
       </Link>
     </main>
   );
 }
 
-export default function TournamentPage({ params }: PageProps<"/tornei/[id]">) {
+export default function TournamentPage({ params }: PageProps<"/onepiece/tornei/[id]">) {
   return (
     <>
       <PageHeader title="Torneo" />

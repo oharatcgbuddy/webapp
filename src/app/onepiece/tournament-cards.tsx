@@ -116,7 +116,7 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
             <li key={t.id} className="brutal-card p-4">
               <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(t.starts_at))}</p>
               <h2 className="text-xl font-black leading-tight">
-                <Link href={`/tornei/${t.id}`} className="underline decoration-[3px]">
+                <Link href={`/onepiece/tornei/${t.id}`} className="underline decoration-[3px]">
                   {t.title}
                 </Link>
               </h2>

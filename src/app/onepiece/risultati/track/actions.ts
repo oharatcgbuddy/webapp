@@ -12,7 +12,7 @@ export type ActionState = { error?: string };
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TRACK_PATH = "/risultati/track";
+const TRACK_PATH = "/onepiece/risultati/track";
 
 function text(fd: FormData, key: string, max: number) {
   const v = fd.get(key);
@@ -277,7 +277,7 @@ export async function closeTrack(_prev: ActionState, fd: FormData): Promise<Acti
     .is("closed_at", null);
   if (error) return { error: "Non sono riuscito a chiudere il torneo." };
 
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }
 
 export async function cancelTrack(): Promise<void> {
@@ -285,5 +285,5 @@ export async function cancelTrack(): Promise<void> {
   if (!user) return;
   // Elimina solo il track aperto dell'utente: round e dettagli vanno in cascata.
   await supabase.from("participations").delete().eq("user_id", user.id).is("closed_at", null);
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }

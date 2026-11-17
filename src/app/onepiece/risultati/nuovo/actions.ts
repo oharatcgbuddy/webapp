@@ -205,5 +205,5 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     return { error: "Non sono riuscito a salvare tutti i dati. Nulla è stato registrato." };
   }
 
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }

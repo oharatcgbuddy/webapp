@@ -31,8 +31,8 @@ export async function saveMeta(_prev: ActionState, fd: FormData): Promise<Action
     return { error: "Non sono riuscito a salvare l'elenco." };
   }
 
-  revalidatePath("/admin/meta");
-  revalidatePath("/risultati/track");
-  revalidatePath("/risultati/nuovo");
+  revalidatePath("/onepiece/admin/meta");
+  revalidatePath("/onepiece/risultati/track");
+  revalidatePath("/onepiece/risultati/nuovo");
   return { ok: true };
 }

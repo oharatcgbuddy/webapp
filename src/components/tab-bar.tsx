@@ -1,18 +1,57 @@
 "use client";
 
+import { useEffect, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DEFAULT_TCG, isTcgSlug, tcgFromPath, type TcgSlug } from "@/lib/tcgs";
 
-const TABS = [
-  { href: "/", label: "Tornei", color: "bg-brand-yellow" },
-  { href: "/mappa", label: "Mappa", color: "bg-brand-blue" },
-  { href: "/risultati", label: "Risultati", color: "bg-brand-green" },
-  { href: "/profilo", label: "Profilo", color: "bg-brand-pink" },
-];
+const STORAGE_KEY = "tcg";
+const noopSubscribe = () => () => {};
+
+// Ultimo gioco usato: serve nelle pagine comuni (Mappa, Profilo…) dove l'indirizzo non indica il gioco.
+function readStoredTcg(): TcgSlug | null {
+  try {
+    const value = localStorage.getItem(STORAGE_KEY);
+    return isTcgSlug(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
 
 export function TabBar() {
   const pathname = usePathname();
+  const stored = useSyncExternalStore(noopSubscribe, readStoredTcg, () => null);
+  const inTcg = tcgFromPath(pathname);
+  const tcg = inTcg ?? stored ?? DEFAULT_TCG;
+
+  useEffect(() => {
+    if (!inTcg) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, inTcg);
+    } catch {
+      // Memoria del browser non disponibile: si userà il gioco predefinito.
+    }
+  }, [inTcg]);
+
   if (pathname.startsWith("/login")) return null;
+
+  const base = `/${tcg}`;
+  const tabs = [
+    {
+      href: base,
+      label: "Tornei",
+      color: "bg-brand-yellow",
+      active: pathname === base || pathname.startsWith(`${base}/tornei`),
+    },
+    { href: "/mappa", label: "Mappa", color: "bg-brand-blue", active: pathname.startsWith("/mappa") },
+    {
+      href: `${base}/risultati`,
+      label: "Risultati",
+      color: "bg-brand-green",
+      active: pathname.startsWith(`${base}/risultati`),
+    },
+    { href: "/profilo", label: "Profilo", color: "bg-brand-pink", active: pathname.startsWith("/profilo") },
+  ];
 
   return (
     <nav
@@ -20,23 +59,17 @@ export function TabBar() {
       className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md border-t-[3px] border-ink bg-paper pb-[env(safe-area-inset-bottom)]"
     >
       <ul className="grid grid-cols-4">
-        {TABS.map((tab) => {
-          const active =
-            tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
-          return (
-            <li key={tab.href} className="border-r-[3px] border-ink last:border-r-0">
-              <Link
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={`block px-1 py-4 text-center text-sm font-bold ${
-                  active ? tab.color : ""
-                }`}
-              >
-                {tab.label}
-              </Link>
-            </li>
-          );
-        })}
+        {tabs.map((tab) => (
+          <li key={tab.label} className="border-b-[3px] border-r-[3px] border-ink last:border-r-0">
+            <Link
+              href={tab.href}
+              aria-current={tab.active ? "page" : undefined}
+              className={`block px-1 py-4 text-center text-sm font-bold ${tab.active ? tab.color : ""}`}
+            >
+              {tab.label}
+            </Link>
+          </li>
+        ))}
       </ul>
     </nav>
   );

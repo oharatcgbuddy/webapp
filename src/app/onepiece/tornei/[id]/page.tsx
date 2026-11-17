@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { bandaiEventUrl } from "@/lib/bandai";
 
 type TournamentDetail = {
   id: string;
@@ -15,6 +16,7 @@ type TournamentDetail = {
   prizes: string | null;
   notes: string | null;
   status: "scheduled" | "completed" | "cancelled";
+  external_id: string | null;
   shops: {
     slug: string;
     name: string;
@@ -75,10 +77,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status,
+      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status, external_id,
        shops (slug, name, address, city, province, phone, website),
-       tcgs (name)`,
+       tcgs!inner (name, slug)`,
     )
+    .eq("tcgs.slug", "onepiece")
     .eq("id", id)
     .maybeSingle()
     .overrideTypes<TournamentDetail, { merge: false }>();
@@ -132,6 +135,23 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
+      {!shop && data.external_id && (
+        <p className="brutal-card p-4 text-sm">
+          Torneo segnalato da un giocatore, non ancora verificato da un negozio.
+        </p>
+      )}
+
+      {data.external_id && (
+        <a
+          href={bandaiEventUrl(data.external_id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="brutal-btn w-full bg-white"
+        >
+          Apri l&apos;evento su BANDAI TCG+
+        </a>
+      )}
+
       {shop && (
         <section className="brutal-card space-y-1 p-4">
           <h3 className="font-black uppercase">Negozio</h3>
@@ -158,14 +178,14 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         </section>
       )}
 
-      <Link href={`/risultati/nuovo?torneo=${data.id}`} className="brutal-btn w-full bg-brand-green">
+      <Link href={`/onepiece/risultati/nuovo?torneo=${data.id}`} className="brutal-btn w-full bg-brand-green">
         Aggiungi il mio risultato
       </Link>
     </main>
   );
 }
 
-export default function TournamentPage({ params }: PageProps<"/tornei/[id]">) {
+export default function TournamentPage({ params }: PageProps<"/onepiece/tornei/[id]">) {
   return (
     <>
       <PageHeader title="Torneo" />

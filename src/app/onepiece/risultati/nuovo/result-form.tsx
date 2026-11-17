@@ -2,10 +2,15 @@
 
 import { useActionState, useState } from "react";
 import { saveResult, type ActionState } from "./actions";
+import { LeaderPicker, type LeaderOpt } from "../track/leader-picker";
 
 type TournamentOpt = { id: string; label: string };
-type LeaderOpt = { card_code: string; name: string };
-type MatchRow = { result: "win" | "loss" | "draw"; on_play: "" | "yes" | "no"; opponent_name: string };
+type MatchRow = {
+  result: "win" | "loss" | "draw";
+  on_play: "" | "yes" | "no";
+  opponent_name: string;
+  notes: string;
+};
 
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
 const label = "block text-sm font-bold uppercase";
@@ -58,22 +63,28 @@ export function ResultForm({
               Data
               <input type="date" name="played_on" max={today} defaultValue={today} className={field} />
             </label>
+            <label className={label}>
+              Link evento BANDAI TCG+ (facoltativo)
+              <input
+                name="bandai_url"
+                type="url"
+                inputMode="url"
+                maxLength={2000}
+                className={field}
+                placeholder="https://www.bandai-tcg-plus.com/event/…"
+              />
+              <span className="mt-1 block text-xs font-normal normal-case">
+                Se un altro giocatore o il negozio l&apos;ha già inserito, ti collego allo stesso torneo.
+              </span>
+            </label>
           </>
         )}
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        <label className={label}>
-          Leader (facoltativo)
-          <select name="leader_code" className={field} defaultValue="">
-            <option value="">— nessuno —</option>
-            {leaders.map((l) => (
-              <option key={l.card_code} value={l.card_code}>
-                {l.card_code} · {l.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {leaders.length > 0 && (
+          <LeaderPicker name="leader_code" label="Leader (facoltativo)" leaders={leaders} required={false} />
+        )}
         {leaders.length === 0 && (
           <p className="text-sm">L&apos;elenco dei leader sarà disponibile con il catalogo carte.</p>
         )}
@@ -133,6 +144,15 @@ export function ResultForm({
               placeholder="Avversario (facoltativo)"
               className={field}
             />
+            <input
+              aria-label={`Nota round ${i + 1}`}
+              value={m.notes}
+              maxLength={140}
+              autoComplete="off"
+              onChange={(e) => update(i, { notes: e.target.value })}
+              placeholder="Nota breve (facoltativa, max 140)"
+              className={field}
+            />
             <button
               type="button"
               onClick={() => setMatches((rows) => rows.filter((_, j) => j !== i))}
@@ -146,7 +166,7 @@ export function ResultForm({
           <button
             type="button"
             className="brutal-btn w-full bg-white"
-            onClick={() => setMatches((rows) => [...rows, { result: "win", on_play: "", opponent_name: "" }])}
+            onClick={() => setMatches((rows) => [...rows, { result: "win", on_play: "", opponent_name: "", notes: "" }])}
           >
             + Aggiungi round
           </button>

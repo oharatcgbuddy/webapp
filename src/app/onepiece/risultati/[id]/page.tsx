@@ -26,6 +26,7 @@ type MatchRow = {
   opponent_name: string | null;
   won_dice: boolean | null;
   result: "win" | "loss" | "draw";
+  notes: string | null;
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -51,8 +52,9 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
     supabase
       .from("participations")
       .select(
-        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, notes, closed_at, tournaments(id, title)",
+        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, notes, closed_at, tournaments(id, title), tcgs!inner(slug)",
       )
+      .eq("tcgs.slug", "onepiece")
       .eq("id", id)
       .maybeSingle()
       .overrideTypes<Detail, { merge: false }>(),
@@ -70,13 +72,13 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   if (!data) notFound();
 
   const isOwner = auth.user?.id === data.user_id;
-  if (!data.closed_at && isOwner) redirect("/risultati/track");
+  if (!data.closed_at && isOwner) redirect("/onepiece/risultati/track");
 
   const [{ data: details }, { data: matchData }] = await Promise.all([
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", id).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, opponent_name, won_dice, result")
+      .select("round, opponent_leader_code, opponent_name, won_dice, result, notes")
       .eq("participation_id", id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
@@ -143,6 +145,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
                     {label(m.opponent_leader_code) ?? m.opponent_name ?? "Avversario n/d"}
                   </p>
                   {m.won_dice !== null && <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>}
+                  {m.notes && <p className="mt-1 text-sm italic">{m.notes}</p>}
                 </div>
                 <span className={`border-2 border-ink px-2 py-1 text-xs font-black uppercase ${RESULT[m.result].cls}`}>
                   {RESULT[m.result].text}
@@ -180,7 +183,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   );
 }
 
-export default function ResultPage({ params }: PageProps<"/risultati/[id]">) {
+export default function ResultPage({ params }: PageProps<"/onepiece/risultati/[id]">) {
   return (
     <>
       <PageHeader title="Risultato" subtitle="Dettaglio torneo" />

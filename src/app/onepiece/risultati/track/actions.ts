@@ -4,13 +4,15 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
+import { resolveBandaiTournament } from "@/lib/tournament-link";
+import { cleanNote } from "@/lib/note-text";
 
 export type ActionState = { error?: string };
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TRACK_PATH = "/risultati/track";
+const TRACK_PATH = "/onepiece/risultati/track";
 
 function text(fd: FormData, key: string, max: number) {
   const v = fd.get(key);
@@ -85,6 +87,21 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: tcg } = await supabase.from("tcgs").select("id").eq("slug", "onepiece").single();
   if (!tcg) return { error: "Gioco non configurato." };
 
+  // Link a un evento Bandai: si ritrova il torneo già collegato (di un negozio o di un altro giocatore)
+  // oppure se ne crea uno comunitario con il nome indicato.
+  let linkedTournamentId = tournamentId;
+  const link = text(fd, "bandai_url", 2000);
+  if (!tournamentId && link) {
+    const resolved = await resolveBandaiTournament(supabase, user.id, {
+      link,
+      title: label,
+      startsAt: new Date().toISOString(),
+      tcgId: tcg.id,
+    });
+    if ("error" in resolved) return { error: resolved.error };
+    linkedTournamentId = resolved.id;
+  }
+
   let deckId = existingDeckId;
   let createdDeckId: string | null = null;
   if (newDeck) {
@@ -124,10 +141,10 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: part, error: partErr } = await supabase
     .from("participations")
     .insert({
-      tournament_id: tournamentId || null,
+      tournament_id: linkedTournamentId || null,
       tcg_id: tcg.id,
       played_on: new Date().toISOString().slice(0, 10),
-      standalone_label: tournamentId ? null : label,
+      standalone_label: linkedTournamentId ? null : label,
       closed_at: null,
     })
     .select("id")
@@ -167,6 +184,9 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
   if (!opponent) return { error: "Scegli il leader avversario." };
   if (dice !== "won" && dice !== "lost") return { error: "Indica se hai vinto il dado." };
   if (result !== "win" && result !== "loss" && result !== "draw") return { error: "Indica l'esito del round." };
+  // Si legge più lungo del massimo per accorgersi dei testi troppo lunghi invece di tagliarli in silenzio.
+  const note = cleanNote(text(fd, "notes", 1000));
+  if ("error" in note) return { error: note.error };
 
   const op = supabase.schema("onepiece");
   const { data: last } = await op
@@ -185,6 +205,7 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
     opponent_leader_code: opponent,
     won_dice: dice === "won",
     result,
+    notes: note.value,
   });
   if (error) {
     if (error.code === "23505") return { error: "Round già registrato: aggiorna la pagina." };
@@ -256,7 +277,7 @@ export async function closeTrack(_prev: ActionState, fd: FormData): Promise<Acti
     .is("closed_at", null);
   if (error) return { error: "Non sono riuscito a chiudere il torneo." };
 
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }
 
 export async function cancelTrack(): Promise<void> {
@@ -264,5 +285,5 @@ export async function cancelTrack(): Promise<void> {
   if (!user) return;
   // Elimina solo il track aperto dell'utente: round e dettagli vanno in cascata.
   await supabase.from("participations").delete().eq("user_id", user.id).is("closed_at", null);
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }

@@ -1,5 +1,5 @@
--- DA APPLICARE (non ancora presente sul database): sostituisce le policy "for all" con
--- insert/update/delete separate, per eliminare l'avviso "multiple permissive policies".
+-- Applicata a mano dal SQL Editor sul progetto dev il 2026-11-17: sostituisce le policy
+-- "for all" con insert/update/delete separate, per eliminare l'avviso "multiple permissive policies".
 
 drop policy dc_write on onepiece.deck_cards;
 create policy dc_insert on onepiece.deck_cards for insert to authenticated

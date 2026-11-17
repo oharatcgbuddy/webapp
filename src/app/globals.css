@@ -35,6 +35,13 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* iOS zooma la pagina al focus di campi con font-size < 16px */
+input,
+select,
+textarea {
+  font-size: 16px;
+}
+
 @layer components {
   .brutal-card {
     @apply border-[3px] border-ink bg-white shadow-brutal;

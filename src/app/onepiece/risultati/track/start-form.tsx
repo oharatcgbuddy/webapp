@@ -57,10 +57,26 @@ export function StartForm({
           <p className="text-xs">Nessun torneo in corso oggi: puoi usare un torneo libero.</p>
         )}
         {!tournamentId && (
-          <label className={label}>
-            Nome del torneo
-            <input name="standalone_label" maxLength={80} required className={field} placeholder="es. Locals da Mario" />
-          </label>
+          <>
+            <label className={label}>
+              Nome del torneo
+              <input name="standalone_label" maxLength={80} required className={field} placeholder="es. Locals da Mario" />
+            </label>
+            <label className={label}>
+              Link evento BANDAI TCG+ (facoltativo)
+              <input
+                name="bandai_url"
+                type="url"
+                inputMode="url"
+                maxLength={2000}
+                className={field}
+                placeholder="https://www.bandai-tcg-plus.com/event/…"
+              />
+              <span className="mt-1 block text-xs font-normal normal-case">
+                Se un altro giocatore o il negozio l&apos;ha già inserito, ti collego allo stesso torneo.
+              </span>
+            </label>
+          </>
         )}
       </section>
 

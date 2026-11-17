@@ -18,6 +18,7 @@ type MatchRow = {
   opponent_leader_code: string | null;
   won_dice: boolean | null;
   result: "win" | "loss" | "draw";
+  notes: string | null;
 };
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -40,7 +41,7 @@ async function TrackLoader() {
   const op = supabase.schema("onepiece");
 
   const [{ data: leaders }, { data: open, error }] = await Promise.all([
-    op.from("leaders").select("card_code, name").order("card_code"),
+    op.from("leaders").select("card_code, name, image_path, meta_position").order("card_code"),
     supabase
       .from("participations")
       .select("id, standalone_label, tournaments(title)")
@@ -97,7 +98,7 @@ async function TrackLoader() {
     op.from("participation_details").select("leader_code").eq("participation_id", open.id).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, won_dice, result")
+      .select("round, opponent_leader_code, won_dice, result, notes")
       .eq("participation_id", open.id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
@@ -138,6 +139,7 @@ async function TrackLoader() {
                   {m.won_dice !== null && (
                     <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>
                   )}
+                  {m.notes && <p className="mt-1 text-sm italic">{m.notes}</p>}
                 </div>
                 <span className={`border-2 border-ink px-2 py-1 text-xs font-black uppercase ${RESULT[m.result].cls}`}>
                   {RESULT[m.result].text}

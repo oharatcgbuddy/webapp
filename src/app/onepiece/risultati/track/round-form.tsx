@@ -52,6 +52,18 @@ export function RoundForm({ round, leaders }: { round: number; leaders: LeaderOp
         </div>
       </fieldset>
 
+      <label className="block text-sm font-bold uppercase">
+        Nota (facoltativa)
+        <input
+          name="notes"
+          maxLength={140}
+          autoComplete="off"
+          placeholder="es. molti blocker, ho vinto al terzo turno"
+          className="mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2 normal-case"
+        />
+        <span className="mt-1 block text-xs font-normal normal-case">Breve testo, massimo 140 caratteri.</span>
+      </label>
+
       {state.error && (
         <p role="alert" className="border-[3px] border-ink bg-brand-red p-3 font-bold">
           {state.error}

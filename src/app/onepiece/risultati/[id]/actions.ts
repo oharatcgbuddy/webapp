@@ -14,5 +14,5 @@ export async function deleteResult(id: string): Promise<void> {
   if (!auth.user) return;
 
   await supabase.from("participations").delete().eq("id", id).eq("user_id", auth.user.id);
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }

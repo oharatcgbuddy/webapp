@@ -3,6 +3,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
+import { romeLocalToIso } from "@/lib/datetime";
+import { resolveBandaiTournament } from "@/lib/tournament-link";
+import { cleanNote } from "@/lib/note-text";
 
 export type ActionState = { error?: string };
 
@@ -26,9 +29,11 @@ type MatchInput = {
   result: "win" | "loss" | "draw";
   on_play: boolean | null;
   opponent_name: string | null;
+  notes: string | null;
 };
 
-function parseMatches(raw: string): MatchInput[] | null {
+// null = formato non valido; { error } = una nota non ammessa (con il motivo da mostrare).
+function parseMatches(raw: string): MatchInput[] | { error: string } | null {
   if (!raw) return [];
   try {
     const arr: unknown = JSON.parse(raw);
@@ -38,7 +43,10 @@ function parseMatches(raw: string): MatchInput[] | null {
       if (typeof item !== "object" || item === null) return null;
       const m = item as Record<string, unknown>;
       if (m.result !== "win" && m.result !== "loss" && m.result !== "draw") return null;
+      const note = cleanNote(typeof m.notes === "string" ? m.notes.slice(0, 1000) : "");
+      if ("error" in note) return { error: `Round ${out.length + 1}: ${note.error}` };
       out.push({
+        notes: note.value,
         result: m.result,
         on_play: m.on_play === "yes" ? true : m.on_play === "no" ? false : null,
         opponent_name:
@@ -77,6 +85,7 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
   if (matches === null) return { error: "Match non validi." };
+  if ("error" in matches) return { error: matches.error };
   if (placement !== null && playersCount !== null && placement > playersCount) {
     return { error: "Il piazzamento non può superare il numero di giocatori." };
   }
@@ -103,6 +112,27 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
 
   const { data: tcg } = await supabase.from("tcgs").select("id").eq("slug", "onepiece").single();
   if (!tcg) return { error: "Gioco non configurato." };
+
+  // Link a un evento Bandai: si ritrova il torneo già collegato (di un negozio o di un altro giocatore)
+  // oppure se ne crea uno comunitario con il nome e la data indicati.
+  let linkedTournamentId = tournamentId;
+  const link = text(fd, "bandai_url", 2000);
+  if (!tournamentId && link) {
+    const resolved = await resolveBandaiTournament(supabase, auth.user.id, {
+      link,
+      title: label,
+      startsAt: romeLocalToIso(`${playedOn}T12:00`) ?? new Date(`${playedOn}T12:00:00Z`).toISOString(),
+      tcgId: tcg.id,
+    });
+    if ("error" in resolved) return { error: resolved.error };
+    linkedTournamentId = resolved.id;
+    // Se il torneo esisteva già, la data è la sua.
+    const { data: t } = await supabase.from("tournaments").select("starts_at").eq("id", resolved.id).maybeSingle();
+    if (t) playedOn = new Date(t.starts_at).toISOString().slice(0, 10);
+    if (playedOn > new Date().toISOString().slice(0, 10)) {
+      return { error: "Questo evento è in una data futura: potrai aggiungere il risultato dopo." };
+    }
+  }
 
   const op = supabase.schema("onepiece");
 
@@ -133,10 +163,10 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: part, error: partErr } = await supabase
     .from("participations")
     .insert({
-      tournament_id: tournamentId || null,
+      tournament_id: linkedTournamentId || null,
       tcg_id: tcg.id,
       played_on: playedOn,
-      standalone_label: tournamentId ? null : label,
+      standalone_label: linkedTournamentId ? null : label,
       placement,
       players_count: playersCount,
       wins: wins ?? 0,
@@ -175,5 +205,5 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     return { error: "Non sono riuscito a salvare tutti i dati. Nulla è stato registrato." };
   }
 
-  redirect("/risultati");
+  redirect("/onepiece/risultati");
 }

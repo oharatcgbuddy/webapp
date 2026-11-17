@@ -14,9 +14,6 @@ export default function LoginPage() {
           className="mx-auto h-auto w-48"
         />
         <h1 className="sr-only">Ohara TCG Buddy</h1>
-        <p className="text-center font-medium">
-          Tieni traccia di tornei e risultati dei tuoi giochi di carte.
-        </p>
       </div>
       <div className="brutal-card p-4">
         <LoginButton />

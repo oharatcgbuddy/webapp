@@ -42,8 +42,18 @@ async function Account() {
         Gestisci un negozio
       </Link>
       {me?.is_admin && (
+        <Link href="/admin/negozi" className="brutal-btn w-full bg-brand-blue">
+          Area admin · negozi e gestori
+        </Link>
+      )}
+      {me?.is_admin && (
         <Link href="/admin/richieste" className="brutal-btn w-full bg-brand-blue">
           Area admin · richieste negozi
+        </Link>
+      )}
+      {me?.is_admin && (
+        <Link href="/onepiece/admin/meta" className="brutal-btn w-full bg-brand-blue">
+          Area admin · leader in meta (One Piece)
         </Link>
       )}
       <form action={signOut}>

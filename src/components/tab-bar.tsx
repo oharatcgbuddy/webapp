@@ -60,7 +60,7 @@ export function TabBar() {
     >
       <ul className="grid grid-cols-4">
         {tabs.map((tab) => (
-          <li key={tab.label} className="border-r-[3px] border-ink last:border-r-0">
+          <li key={tab.label} className="border-b-[3px] border-r-[3px] border-ink last:border-r-0">
             <Link
               href={tab.href}
               aria-current={tab.active ? "page" : undefined}

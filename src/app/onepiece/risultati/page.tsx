@@ -148,14 +148,74 @@ async function Results() {
   );
 }
 
+const LIVE_BUTTON = "brutal-btn w-full bg-brand-green";
+
+// Pulsante del track live. Se ce n'è uno aperto diventa un riquadro ben visibile con titolo, record
+// e round, che porta a continuarlo; altrimenti invita ad avviarne uno.
+async function LiveTrack() {
+  await connection(); // il controllo del token usa l'ora corrente: niente prerender
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+
+  const { data: open } = await supabase
+    .from("participations")
+    .select("id, standalone_label, tournaments(title), tcgs!inner(slug)")
+    .eq("tcgs.slug", "onepiece")
+    .eq("user_id", auth.user?.id ?? "")
+    .is("closed_at", null)
+    .maybeSingle()
+    .overrideTypes<{ id: string; standalone_label: string | null; tournaments: { title: string } | null }, { merge: false }>();
+
+  if (!open) {
+    return (
+      <Link href="/onepiece/risultati/track" className={LIVE_BUTTON}>
+        ▶ Avvia un track live
+      </Link>
+    );
+  }
+
+  const { data: matches } = await supabase
+    .schema("onepiece")
+    .from("matches")
+    .select("result")
+    .eq("participation_id", open.id);
+  const count = (r: string) => (matches ?? []).filter((m) => m.result === r).length;
+  const rounds = matches?.length ?? 0;
+
+  return (
+    <Link
+      href="/onepiece/risultati/track"
+      className="brutal-card block bg-brand-green p-4"
+      aria-label="Track in corso: continua"
+    >
+      <p className="flex items-center gap-2 text-xs font-black uppercase">
+        <span aria-hidden className="inline-block h-3 w-3 animate-pulse rounded-full border-2 border-ink bg-brand-red" />
+        Track in corso
+      </p>
+      <p className="mt-1 text-xl font-black leading-tight">{open.tournaments?.title ?? open.standalone_label}</p>
+      <p className="mt-1 text-sm font-bold">
+        {count("win")}V · {count("loss")}S · {count("draw")}P
+        {rounds === 0 ? " · nessun round ancora" : rounds === 1 ? " · 1 round giocato" : ` · ${rounds} round giocati`}
+      </p>
+      <span className="mt-3 inline-block border-[3px] border-ink bg-white px-3 py-2 font-bold">Continua →</span>
+    </Link>
+  );
+}
+
 export default function RisultatiPage() {
   return (
     <>
       <PageHeader title="Miei risultati" subtitle="Storico e statistiche" />
       <main className="space-y-4 p-4">
-        <Link href="/onepiece/risultati/track" className="brutal-btn w-full bg-brand-green">
-          ▶ Track torneo live
-        </Link>
+        <Suspense
+          fallback={
+            <Link href="/onepiece/risultati/track" className={LIVE_BUTTON}>
+              ▶ Track torneo live
+            </Link>
+          }
+        >
+          <LiveTrack />
+        </Suspense>
         <Link href="/onepiece/risultati/nuovo" className="brutal-btn w-full bg-white">
           + Aggiungi a posteriori
         </Link>

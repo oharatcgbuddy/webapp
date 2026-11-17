@@ -69,9 +69,8 @@ function Tile({
   );
 }
 
-// Selezione del leader con un solo elenco di riquadri con l'immagine.
-// Senza ricerca: prima i leader "in meta" (scelti dall'admin), poi tutti gli altri.
-// Scrivendo nella ricerca l'elenco si restringe ai leader che corrispondono.
+// Selezione del leader: barra di ricerca e, sopra l'elenco, i leader "in meta" (scelti dall'admin)
+// come riquadri con l'immagine. Gli altri leader compaiono solo cercando, sempre come riquadri.
 export function LeaderPicker({
   name,
   label,
@@ -98,7 +97,7 @@ export function LeaderPicker({
   const q = query.trim().toLowerCase();
   const matches = q
     ? leaders.filter((l) => l.name.toLowerCase().includes(q) || l.card_code.toLowerCase().includes(q))
-    : leaders.filter((l) => l.meta_position == null);
+    : [];
   const selected = leaders.find((l) => l.card_code === value);
 
   return (
@@ -148,20 +147,21 @@ export function LeaderPicker({
         </div>
       )}
 
-      <div className="space-y-1">
-        <p className="text-xs font-bold uppercase">
-          {q ? `Risultati (${matches.length})` : meta.length > 0 ? "Altri leader" : "Leader"}
-        </p>
-        {matches.length === 0 ? (
-          <p className="text-sm">Nessun leader trovato.</p>
-        ) : (
-          <div className="grid max-h-[28rem] grid-cols-3 gap-2 overflow-y-auto border-[3px] border-ink bg-white p-2">
-            {matches.map((l) => (
-              <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => pick(l.card_code)} />
-            ))}
-          </div>
-        )}
-      </div>
+      {/* Nessun elenco finché non si cerca: i risultati compaiono solo scrivendo nella ricerca. */}
+      {q && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold uppercase">Risultati ({matches.length})</p>
+          {matches.length === 0 ? (
+            <p className="text-sm">Nessun leader trovato.</p>
+          ) : (
+            <div className="grid max-h-[28rem] grid-cols-3 gap-2 overflow-y-auto border-[3px] border-ink bg-white p-2">
+              {matches.map((l) => (
+                <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => pick(l.card_code)} />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

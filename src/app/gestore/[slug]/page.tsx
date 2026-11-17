@@ -4,7 +4,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { canManageShop } from "@/lib/shop-access";
 import { ShopForm } from "./shop-form";
+import { updateShop } from "./actions";
 
 type ShopRow = {
   id: string;
@@ -68,14 +70,8 @@ async function Manage({
     .overrideTypes<ShopRow, { merge: false }>();
   if (!shop) notFound();
 
-  const { data: member } = await supabase
-    .from("shop_members")
-    .select("role")
-    .eq("shop_id", shop.id)
-    .eq("user_id", auth.user?.id ?? "")
-    .maybeSingle();
-  // Chi non gestisce il negozio non deve nemmeno sapere che la pagina esiste.
-  if (!member) notFound();
+  // Chi non gestisce il negozio (membro o admin) non deve nemmeno sapere che la pagina esiste.
+  if (!(await canManageShop(supabase, shop.id, auth.user?.id ?? ""))) notFound();
 
   const { data: tournaments } = await supabase
     .from("tournaments")
@@ -128,7 +124,7 @@ async function Manage({
       <section className="space-y-3">
         <h2 className="text-lg font-black uppercase">Pagina del negozio</h2>
         <ShopForm
-          slug={slug}
+          action={updateShop.bind(null, slug)}
           initial={{
             name: shop.name,
             city: shop.city ?? "",

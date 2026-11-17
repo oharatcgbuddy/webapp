@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { updateShop, type ActionState } from "./actions";
+import type { ActionState } from "./actions";
 import { LocationPicker } from "./location-picker";
 
 export type ShopValues = {
@@ -22,8 +22,20 @@ export type ShopValues = {
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
 const label = "block text-sm font-bold uppercase";
 
-export function ShopForm({ slug, initial }: { slug: string; initial: ShopValues }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(updateShop.bind(null, slug), {});
+// Lo stesso form serve per modificare un negozio (gestore o admin) e per crearne uno (admin):
+// cambia solo l'azione che salva.
+export function ShopForm({
+  action: saveAction,
+  initial,
+  submitLabel = "Salva pagina negozio",
+  savedMessage = "Modifiche salvate.",
+}: {
+  action: (prev: ActionState, fd: FormData) => Promise<ActionState>;
+  initial: ShopValues;
+  submitLabel?: string;
+  savedMessage?: string;
+}) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(saveAction, {});
 
   return (
     <form action={action} className="brutal-card space-y-3 p-4">
@@ -85,12 +97,12 @@ export function ShopForm({ slug, initial }: { slug: string; initial: ShopValues 
       )}
       {state.ok && (
         <p role="status" className="border-[3px] border-ink bg-brand-green p-3 font-bold">
-          Modifiche salvate.
+          {savedMessage}
         </p>
       )}
 
       <button type="submit" disabled={pending} className="brutal-btn w-full bg-brand-green disabled:opacity-60">
-        {pending ? "Salvo…" : "Salva pagina negozio"}
+        {pending ? "Salvo…" : submitLabel}
       </button>
     </form>
   );

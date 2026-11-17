@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { isoToRomeLocal } from "@/lib/datetime";
 import { bandaiEventUrl } from "@/lib/bandai";
+import { canManageShop } from "@/lib/shop-access";
 import { TournamentForm } from "../../tournament-form";
 import { DeleteTournament } from "../../delete-tournament";
 
@@ -40,13 +41,7 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
 
   const { data: shop } = await supabase.from("shops").select("id").eq("slug", slug).maybeSingle();
   if (!shop) notFound();
-  const { data: member } = await supabase
-    .from("shop_members")
-    .select("role")
-    .eq("shop_id", shop.id)
-    .eq("user_id", auth.user?.id ?? "")
-    .maybeSingle();
-  if (!member) notFound();
+  if (!(await canManageShop(supabase, shop.id, auth.user?.id ?? ""))) notFound();
 
   const [{ data: t }, { data: tcgs }] = await Promise.all([
     supabase

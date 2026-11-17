@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { romeLocalToIso } from "@/lib/datetime";
 import { BANDAI_LINK_ERROR, BANDAI_SOURCE, parseBandaiEventLink } from "@/lib/bandai";
+import { parseShopFields } from "@/lib/shop-fields";
+import { canManageShop } from "@/lib/shop-access";
 
 export type ActionState = { error?: string; ok?: boolean };
 
@@ -17,17 +19,7 @@ function text(fd: FormData, key: string, max: number) {
   return typeof v === "string" ? v.trim().slice(0, max) : "";
 }
 
-function normalizeUrl(raw: string): string | null | "invalid" {
-  if (!raw) return null;
-  try {
-    const u = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
-    return u.protocol === "https:" || u.protocol === "http:" ? u.toString() : "invalid";
-  } catch {
-    return "invalid";
-  }
-}
-
-// Verifica che l'utente gestisca il negozio. Le RLS restano l'ultima difesa,
+// Verifica che l'utente gestisca il negozio (membro o admin). Le RLS restano l'ultima difesa,
 // ma qui si evitano scritture "silenziose" da 0 righe.
 async function managedShop(slug: string) {
   if (!SLUG.test(slug)) return null;
@@ -37,13 +29,7 @@ async function managedShop(slug: string) {
 
   const { data: shop } = await supabase.from("shops").select("id").eq("slug", slug).maybeSingle();
   if (!shop) return null;
-  const { data: member } = await supabase
-    .from("shop_members")
-    .select("role")
-    .eq("shop_id", shop.id)
-    .eq("user_id", auth.user.id)
-    .maybeSingle();
-  if (!member) return null;
+  if (!(await canManageShop(supabase, shop.id, auth.user.id))) return null;
 
   return { supabase, shopId: shop.id as string, uid: auth.user.id };
 }
@@ -56,51 +42,12 @@ export async function updateShop(slug: string, _prev: ActionState, fd: FormData)
   const ctx = await managedShop(slug);
   if (!ctx) return NO_ACCESS;
 
-  const name = text(fd, "name", 80);
-  const city = text(fd, "city", 60);
-  const province = text(fd, "province", 2).toUpperCase();
-  if (!/[a-z0-9]/i.test(name)) return { error: "Inserisci il nome del negozio." };
-  if (!city) return { error: "Inserisci la città." };
-  if (!/^[A-Z]{2}$/.test(province)) return { error: "La provincia deve essere di 2 lettere (es. MI)." };
-
-  const website = normalizeUrl(text(fd, "website", 200));
-  const social: Record<string, string> = {};
-  for (const key of ["instagram", "facebook", "discord"] as const) {
-    const url = normalizeUrl(text(fd, key, 200));
-    if (url === "invalid") return { error: `Il link ${key} non è valido.` };
-    if (url) social[key] = url;
-  }
-  if (website === "invalid") return { error: "Il sito web non è valido." };
-
-  // Posizione: o entrambe le coordinate o nessuna.
-  const latRaw = text(fd, "lat", 20);
-  const lngRaw = text(fd, "lng", 20);
-  let lat: number | null = null;
-  let lng: number | null = null;
-  if (latRaw || lngRaw) {
-    lat = Number(latRaw);
-    lng = Number(lngRaw);
-    if (!latRaw || !lngRaw || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
-      return { error: "La posizione sulla mappa non è valida." };
-    }
-    lat = Math.round(lat * 1e5) / 1e5;
-    lng = Math.round(lng * 1e5) / 1e5;
-  }
+  const parsed = parseShopFields(fd);
+  if ("error" in parsed) return { error: parsed.error };
 
   const { data, error } = await ctx.supabase
     .from("shops")
-    .update({
-      name,
-      city,
-      province,
-      address: text(fd, "address", 120) || null,
-      phone: text(fd, "phone", 30) || null,
-      description: text(fd, "description", 1000) || null,
-      website,
-      social,
-      lat,
-      lng,
-    })
+    .update(parsed.values)
     .eq("id", ctx.shopId)
     .select("id");
   if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare le modifiche." };

@@ -1,5 +1,6 @@
 // Indirizzi delle immagini di carte e leader, in un bucket pubblico di Supabase Storage.
-// Nel database si salva solo il percorso senza estensione (es. "leaders/OP01-001"); i file sono due
+// I file stanno sotto il percorso del gioco, così più TCG non si mescolano.
+// Nel database si salva solo il percorso senza estensione (es. "onepiece/leaders/OP01-001"); i file sono due
 // WebP già ridimensionati: "<percorso>.webp" (480 px) e "<percorso>.thumb.webp" (160 px).
 // Le immagini si servono direttamente da Supabase (senza l'ottimizzatore di Next/Vercel).
 

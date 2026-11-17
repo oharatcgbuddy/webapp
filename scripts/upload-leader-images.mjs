@@ -12,6 +12,9 @@
 // Opzioni:
 //   --go                 carica davvero. Senza, è una PROVA: mostra cosa farebbe e quanto pesa.
 //   --only=OP01-001,...  limita il lavoro a questi codici (utile per provare con una sola carta).
+//   --tcg=onepiece       gioco a cui appartengono le immagini (default: onepiece). Nel bucket i file
+//                        stanno sotto il percorso del gioco: onepiece/leaders/OP01-001.webp, così
+//                        un domani un altro TCG non si mescola con questo.
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -30,6 +33,12 @@ const args = process.argv.slice(2);
 const go = args.includes("--go");
 const dir = args.find((a) => !a.startsWith("--"));
 const onlyArg = args.find((a) => a.startsWith("--only="));
+const tcgArg = args.find((a) => a.startsWith("--tcg="));
+const tcg = tcgArg ? tcgArg.slice(6) : "onepiece";
+if (!/^[a-z0-9-]{2,30}$/.test(tcg)) {
+  console.error("Il nome del gioco (--tcg) può avere solo lettere minuscole, numeri e trattini.");
+  process.exit(1);
+}
 const only = onlyArg ? new Set(onlyArg.slice(7).split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)) : null;
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,6 +49,7 @@ if (!dir || !url || !key) {
 }
 
 console.log(`Progetto: ${new URL(url).host}`);
+console.log(`Gioco: ${tcg} (percorso nel bucket: ${tcg}/leaders/…)`);
 console.log(go ? "Modalità: CARICAMENTO REALE" : "Modalità: prova (nessun caricamento; aggiungi --go per caricare)");
 
 const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -89,7 +99,7 @@ for (const file of files) {
         .webp({ quality: s.quality })
         .toBuffer();
       if (buf.length > MAX_BYTES) throw new Error(`${s.suffix} pesa ${buf.length} byte (limite ${MAX_BYTES})`);
-      outputs.push({ name: `leaders/${code}${s.suffix}`, buf });
+      outputs.push({ name: `${tcg}/leaders/${code}${s.suffix}`, buf });
     }
     const bytes = outputs.reduce((n, o) => n + o.buf.length, 0);
     total += bytes;
@@ -104,7 +114,7 @@ for (const file of files) {
       const { error } = await supabase
         .schema("onepiece")
         .from("leaders")
-        .update({ image_path: `leaders/${code}` })
+        .update({ image_path: `${tcg}/leaders/${code}` })
         .eq("card_code", code);
       if (error) throw new Error(`collegamento leader: ${error.message}`);
     }

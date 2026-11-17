@@ -1,4 +1,4 @@
--- Non ancora applicata al database: sostituisce le policy "for all" con
+-- DA APPLICARE (non ancora presente sul database): sostituisce le policy "for all" con
 -- insert/update/delete separate, per eliminare l'avviso "multiple permissive policies".
 
 drop policy dc_write on onepiece.deck_cards;

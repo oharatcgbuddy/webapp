@@ -47,5 +47,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# SQL di inizializzazione di produzione, generato da scripts/build-prod-bootstrap.mjs
+/supabase/prod/
+
 # configurazione MCP locale (contiene il riferimento del progetto Supabase): usa .mcp.example.json come modello
 /.mcp.json

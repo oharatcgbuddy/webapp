@@ -1,15 +1,20 @@
+import Image from "next/image";
 import { LoginButton } from "./login-button";
 
 export default function LoginPage() {
   return (
     <main className="flex min-h-dvh flex-col justify-center gap-8 bg-brand-yellow p-6">
-      <div>
-        <h1 className="text-5xl font-black uppercase leading-none tracking-tight">
-          TCG
-          <br />
-          Buddy
-        </h1>
-        <p className="mt-3 font-medium">
+      <div className="space-y-3">
+        <Image
+          src="/logo.png"
+          alt="Ohara TCG Buddy"
+          width={192}
+          height={192}
+          priority
+          className="mx-auto h-auto w-48"
+        />
+        <h1 className="sr-only">Ohara TCG Buddy</h1>
+        <p className="text-center font-medium">
           Tieni traccia di tornei e risultati dei tuoi giochi di carte.
         </p>
       </div>

@@ -10,10 +10,9 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "TCG Buddy",
+  title: "Ohara TCG Buddy",
   description: "Traccia tornei e risultati dei tuoi TCG.",
-  appleWebApp: { capable: true, title: "TCG Buddy", statusBarStyle: "default" },
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  appleWebApp: { capable: true, title: "Ohara Buddy", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

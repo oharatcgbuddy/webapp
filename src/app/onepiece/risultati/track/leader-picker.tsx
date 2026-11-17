@@ -11,9 +11,8 @@ export type LeaderOpt = {
   meta_position?: number | null;
 };
 
-const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
+const field = "block w-full border-[3px] border-ink bg-white px-3 py-2";
 const META_VISIBLE = 9;
-const SEARCH_VISIBLE = 12;
 
 // Immagine del leader; se manca, un riquadro con il codice.
 function Thumb({ leader, eager = false }: { leader: LeaderOpt; eager?: boolean }) {
@@ -70,9 +69,9 @@ function Tile({
   );
 }
 
-// Selezione del leader. In cima i leader "in meta" (scelti dall'admin) come riquadri da toccare;
-// cercando, o con "Sfoglia tutti", tutti i leader compaiono come riquadri con l'immagine.
-// Il menù a tendina resta come alternativa rapida: i leader sono centinaia.
+// Selezione del leader con un solo elenco di riquadri con l'immagine.
+// Senza ricerca: prima i leader "in meta" (scelti dall'admin), poi tutti gli altri.
+// Scrivendo nella ricerca l'elenco si restringe ai leader che corrispondono.
 export function LeaderPicker({
   name,
   label,
@@ -87,8 +86,9 @@ export function LeaderPicker({
   const [query, setQuery] = useState("");
   const [value, setValue] = useState("");
   const [showAllMeta, setShowAllMeta] = useState(false);
-  const [browseAll, setBrowseAll] = useState(false);
-  const [moreResults, setMoreResults] = useState(false);
+
+  // Si può togliere la scelta solo se il leader è facoltativo.
+  const pick = (code: string) => setValue((v) => (v === code && !required ? "" : code));
 
   const meta = leaders
     .filter((l) => l.meta_position != null)
@@ -96,95 +96,24 @@ export function LeaderPicker({
   const metaShown = showAllMeta ? meta : meta.slice(0, META_VISIBLE);
 
   const q = query.trim().toLowerCase();
-  const filtered = q
+  const matches = q
     ? leaders.filter((l) => l.name.toLowerCase().includes(q) || l.card_code.toLowerCase().includes(q))
-    : leaders;
+    : leaders.filter((l) => l.meta_position == null);
   const selected = leaders.find((l) => l.card_code === value);
-  const options =
-    selected && !filtered.some((l) => l.card_code === value) ? [selected, ...filtered] : filtered;
-
-  // Riquadri sotto la ricerca: i risultati se si sta cercando, altrimenti tutti se si sceglie di sfogliare.
-  const grid = q ? (moreResults ? filtered : filtered.slice(0, SEARCH_VISIBLE)) : browseAll ? leaders : [];
-  const hiddenResults = q && !moreResults ? filtered.length - grid.length : 0;
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <span className="block text-sm font-bold uppercase">{label}</span>
 
-      {meta.length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-bold uppercase">In meta ora</p>
-          <div className="grid grid-cols-3 gap-2">
-            {metaShown.map((l) => (
-              <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => setValue(l.card_code)} eager />
-            ))}
-          </div>
-          {meta.length > META_VISIBLE && (
-            <button
-              type="button"
-              onClick={() => setShowAllMeta((v) => !v)}
-              className="text-sm font-bold underline"
-            >
-              {showAllMeta ? "Mostra meno" : `Mostra tutti (${meta.length})`}
-            </button>
-          )}
-        </div>
-      )}
-
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          setMoreResults(false);
-        }}
-        placeholder="Cerca per nome o codice"
-        aria-label={`Filtra ${label}`}
-        className={field}
-      />
-
-      {q && filtered.length === 0 && <p className="text-sm">Nessun leader trovato.</p>}
-
-      {grid.length > 0 && (
-        <div className="space-y-1">
-          <div className="grid grid-cols-3 gap-2">
-            {grid.map((l) => (
-              <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => setValue(l.card_code)} />
-            ))}
-          </div>
-          {hiddenResults > 0 && (
-            <button type="button" onClick={() => setMoreResults(true)} className="text-sm font-bold underline">
-              Mostra altri {hiddenResults}
-            </button>
-          )}
-        </div>
-      )}
-
-      {!q && (
-        <button type="button" onClick={() => setBrowseAll((v) => !v)} className="text-sm font-bold underline">
-          {browseAll ? "Nascondi l'elenco con le immagini" : `Sfoglia tutti i leader con le immagini (${leaders.length})`}
-        </button>
-      )}
-
-      <select
-        name={name}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        required={required}
-        aria-label={label}
-        className={field}
-      >
-        <option value="">{required ? "— scegli —" : "— nessuno —"}</option>
-        {options.map((l) => (
-          <option key={l.card_code} value={l.card_code}>
-            {l.card_code} · {l.name}
-          </option>
-        ))}
-      </select>
+      {/* Il valore inviato con il form. */}
+      <input type="hidden" name={name} value={value} />
 
       {selected && (
-        <div className="flex items-center gap-3 border-[3px] border-ink bg-white p-2">
-          <span className="block aspect-[5/7] w-14 shrink-0 overflow-hidden border-2 border-ink">
+        <div
+          role="status"
+          className="flex items-center gap-3 border-[3px] border-ink bg-brand-yellow p-2 shadow-brutal"
+        >
+          <span className="block aspect-[5/7] w-12 shrink-0 overflow-hidden border-2 border-ink">
             <Thumb leader={selected} eager />
           </span>
           <p className="min-w-0 text-sm font-bold leading-tight">
@@ -193,6 +122,46 @@ export function LeaderPicker({
           </p>
         </div>
       )}
+
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Cerca per nome o codice"
+        aria-label={`Cerca ${label}`}
+        className={field}
+      />
+
+      {!q && meta.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-bold uppercase">In meta ora</p>
+          <div className="grid grid-cols-3 gap-2">
+            {metaShown.map((l) => (
+              <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => pick(l.card_code)} eager />
+            ))}
+          </div>
+          {meta.length > META_VISIBLE && (
+            <button type="button" onClick={() => setShowAllMeta((v) => !v)} className="text-sm font-bold underline">
+              {showAllMeta ? "Mostra meno" : `Mostra tutti (${meta.length})`}
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="space-y-1">
+        <p className="text-xs font-bold uppercase">
+          {q ? `Risultati (${matches.length})` : meta.length > 0 ? "Altri leader" : "Leader"}
+        </p>
+        {matches.length === 0 ? (
+          <p className="text-sm">Nessun leader trovato.</p>
+        ) : (
+          <div className="grid max-h-[28rem] grid-cols-3 gap-2 overflow-y-auto border-[3px] border-ink bg-white p-2">
+            {matches.map((l) => (
+              <Tile key={l.card_code} leader={l} active={l.card_code === value} onPick={() => pick(l.card_code)} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

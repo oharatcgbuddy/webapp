@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
+import { resolveBandaiTournament } from "@/lib/tournament-link";
 
 export type ActionState = { error?: string };
 
@@ -85,6 +86,21 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: tcg } = await supabase.from("tcgs").select("id").eq("slug", "onepiece").single();
   if (!tcg) return { error: "Gioco non configurato." };
 
+  // Link a un evento Bandai: si ritrova il torneo già collegato (di un negozio o di un altro giocatore)
+  // oppure se ne crea uno comunitario con il nome indicato.
+  let linkedTournamentId = tournamentId;
+  const link = text(fd, "bandai_url", 2000);
+  if (!tournamentId && link) {
+    const resolved = await resolveBandaiTournament(supabase, user.id, {
+      link,
+      title: label,
+      startsAt: new Date().toISOString(),
+      tcgId: tcg.id,
+    });
+    if ("error" in resolved) return { error: resolved.error };
+    linkedTournamentId = resolved.id;
+  }
+
   let deckId = existingDeckId;
   let createdDeckId: string | null = null;
   if (newDeck) {
@@ -124,10 +140,10 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: part, error: partErr } = await supabase
     .from("participations")
     .insert({
-      tournament_id: tournamentId || null,
+      tournament_id: linkedTournamentId || null,
       tcg_id: tcg.id,
       played_on: new Date().toISOString().slice(0, 10),
-      standalone_label: tournamentId ? null : label,
+      standalone_label: linkedTournamentId ? null : label,
       closed_at: null,
     })
     .select("id")

@@ -58,6 +58,20 @@ export function ResultForm({
               Data
               <input type="date" name="played_on" max={today} defaultValue={today} className={field} />
             </label>
+            <label className={label}>
+              Link evento BANDAI TCG+ (facoltativo)
+              <input
+                name="bandai_url"
+                type="url"
+                inputMode="url"
+                maxLength={2000}
+                className={field}
+                placeholder="https://www.bandai-tcg-plus.com/event/…"
+              />
+              <span className="mt-1 block text-xs font-normal normal-case">
+                Se un altro giocatore o il negozio l&apos;ha già inserito, ti collego allo stesso torneo.
+              </span>
+            </label>
           </>
         )}
       </section>

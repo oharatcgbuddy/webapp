@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { romeLocalToIso } from "@/lib/datetime";
+import { BANDAI_LINK_ERROR, BANDAI_SOURCE, parseBandaiEventLink } from "@/lib/bandai";
 
 export type ActionState = { error?: string; ok?: boolean };
 
@@ -126,7 +127,10 @@ function parseTournament(fd: FormData) {
   const maxRaw = text(fd, "max_players", 5);
   const max = maxRaw === "" ? null : Number(maxRaw);
   const status = text(fd, "status", 12) || "scheduled";
+  const linkRaw = text(fd, "bandai_url", 2000);
+  const link = linkRaw ? parseBandaiEventLink(linkRaw) : null;
 
+  if (linkRaw && !link) return { error: BANDAI_LINK_ERROR } as const;
   if (!title) return { error: "Inserisci il titolo del torneo." } as const;
   if (!Number.isInteger(tcgId) || tcgId < 1) return { error: "Scegli il gioco." } as const;
   if (!startsAt) return { error: "Data e ora non valide." } as const;
@@ -147,9 +151,14 @@ function parseTournament(fd: FormData) {
       prizes: text(fd, "prizes", 500) || null,
       notes: text(fd, "notes", 1000) || null,
       status,
+      external_source: link ? BANDAI_SOURCE : null,
+      external_id: link ? link.id : null,
     },
   } as const;
 }
+
+const LINK_TAKEN =
+  "Questo evento Bandai è già collegato a un altro torneo (forse inserito da un giocatore). Per ora non puoi riusarlo.";
 
 export async function createTournament(slug: string, _prev: ActionState, fd: FormData): Promise<ActionState> {
   const ctx = await managedShop(slug);
@@ -161,7 +170,7 @@ export async function createTournament(slug: string, _prev: ActionState, fd: For
   const { error } = await ctx.supabase
     .from("tournaments")
     .insert({ ...parsed.values, shop_id: ctx.shopId, created_by: ctx.uid });
-  if (error) return { error: "Non sono riuscito a creare il torneo." };
+  if (error) return { error: error.code === "23505" ? LINK_TAKEN : "Non sono riuscito a creare il torneo." };
 
   revalidatePath(`/gestore/${slug}`);
   redirect(`/gestore/${slug}`);
@@ -186,6 +195,7 @@ export async function updateTournament(
     .eq("id", id)
     .eq("shop_id", ctx.shopId)
     .select("id");
+  if (error?.code === "23505") return { error: LINK_TAKEN };
   if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare il torneo." };
 
   revalidatePath(`/gestore/${slug}`);

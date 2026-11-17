@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { isoToRomeLocal } from "@/lib/datetime";
+import { bandaiEventUrl } from "@/lib/bandai";
 import { TournamentForm } from "../../tournament-form";
 import { DeleteTournament } from "../../delete-tournament";
 
@@ -17,6 +18,7 @@ type TournamentRow = {
   max_players: number | null;
   prizes: string | null;
   notes: string | null;
+  external_id: string | null;
   status: "scheduled" | "completed" | "cancelled";
 };
 
@@ -49,7 +51,7 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
   const [{ data: t }, { data: tcgs }] = await Promise.all([
     supabase
       .from("tournaments")
-      .select("id, title, tcg_id, format_slug, starts_at, entry_fee_cents, max_players, prizes, notes, status")
+      .select("id, title, tcg_id, format_slug, starts_at, entry_fee_cents, max_players, prizes, notes, external_id, status")
       .eq("id", id)
       .eq("shop_id", shop.id)
       .maybeSingle()
@@ -73,6 +75,7 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
           max_players: t.max_players?.toString() ?? "",
           prizes: t.prizes ?? "",
           notes: t.notes ?? "",
+          bandai_url: t.external_id ? bandaiEventUrl(t.external_id) : "",
           status: t.status,
         }}
       />

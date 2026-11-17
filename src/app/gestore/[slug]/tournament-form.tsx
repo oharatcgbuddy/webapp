@@ -12,6 +12,7 @@ export type TournamentValues = {
   max_players: string;
   prizes: string;
   notes: string;
+  bandai_url: string; // link all'evento su BANDAI TCG+ (facoltativo)
   status: "scheduled" | "completed" | "cancelled";
 };
 
@@ -73,6 +74,21 @@ export function TournamentForm({
           <input name="max_players" type="number" inputMode="numeric" min={1} defaultValue={initial.max_players} className={field} />
         </label>
       </div>
+      <label className={label}>
+        Link evento BANDAI TCG+ (facoltativo)
+        <input
+          name="bandai_url"
+          type="url"
+          inputMode="url"
+          maxLength={2000}
+          defaultValue={initial.bandai_url}
+          placeholder="https://www.bandai-tcg-plus.com/event/…"
+          className={field}
+        />
+        <span className="mt-1 block text-xs font-normal normal-case">
+          Serve a far ritrovare lo stesso torneo ai giocatori che incollano il link. Viene salvato solo il codice dell&apos;evento.
+        </span>
+      </label>
       <label className={label}>
         Premi
         <textarea name="prizes" rows={3} maxLength={500} defaultValue={initial.prizes} className={field} />

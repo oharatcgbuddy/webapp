@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { bandaiEventUrl } from "@/lib/bandai";
 
 type TournamentDetail = {
   id: string;
@@ -15,6 +16,7 @@ type TournamentDetail = {
   prizes: string | null;
   notes: string | null;
   status: "scheduled" | "completed" | "cancelled";
+  external_id: string | null;
   shops: {
     slug: string;
     name: string;
@@ -75,7 +77,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status,
+      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status, external_id,
        shops (slug, name, address, city, province, phone, website),
        tcgs (name)`,
     )
@@ -130,6 +132,23 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           <h3 className="font-black uppercase">Note</h3>
           <p className="whitespace-pre-line">{data.notes}</p>
         </section>
+      )}
+
+      {!shop && data.external_id && (
+        <p className="brutal-card p-4 text-sm">
+          Torneo segnalato da un giocatore, non ancora verificato da un negozio.
+        </p>
+      )}
+
+      {data.external_id && (
+        <a
+          href={bandaiEventUrl(data.external_id)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="brutal-btn w-full bg-white"
+        >
+          Apri l&apos;evento su BANDAI TCG+
+        </a>
       )}
 
       {shop && (

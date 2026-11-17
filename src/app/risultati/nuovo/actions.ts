@@ -3,6 +3,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { parseDecklist } from "@/lib/onepiece/decklist";
+import { romeLocalToIso } from "@/lib/datetime";
+import { resolveBandaiTournament } from "@/lib/tournament-link";
 
 export type ActionState = { error?: string };
 
@@ -104,6 +106,27 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: tcg } = await supabase.from("tcgs").select("id").eq("slug", "onepiece").single();
   if (!tcg) return { error: "Gioco non configurato." };
 
+  // Link a un evento Bandai: si ritrova il torneo già collegato (di un negozio o di un altro giocatore)
+  // oppure se ne crea uno comunitario con il nome e la data indicati.
+  let linkedTournamentId = tournamentId;
+  const link = text(fd, "bandai_url", 2000);
+  if (!tournamentId && link) {
+    const resolved = await resolveBandaiTournament(supabase, auth.user.id, {
+      link,
+      title: label,
+      startsAt: romeLocalToIso(`${playedOn}T12:00`) ?? new Date(`${playedOn}T12:00:00Z`).toISOString(),
+      tcgId: tcg.id,
+    });
+    if ("error" in resolved) return { error: resolved.error };
+    linkedTournamentId = resolved.id;
+    // Se il torneo esisteva già, la data è la sua.
+    const { data: t } = await supabase.from("tournaments").select("starts_at").eq("id", resolved.id).maybeSingle();
+    if (t) playedOn = new Date(t.starts_at).toISOString().slice(0, 10);
+    if (playedOn > new Date().toISOString().slice(0, 10)) {
+      return { error: "Questo evento è in una data futura: potrai aggiungere il risultato dopo." };
+    }
+  }
+
   const op = supabase.schema("onepiece");
 
   // --- Scritture (non transazionali: in caso di errore si annulla a mano) ---
@@ -133,10 +156,10 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const { data: part, error: partErr } = await supabase
     .from("participations")
     .insert({
-      tournament_id: tournamentId || null,
+      tournament_id: linkedTournamentId || null,
       tcg_id: tcg.id,
       played_on: playedOn,
-      standalone_label: tournamentId ? null : label,
+      standalone_label: linkedTournamentId ? null : label,
       placement,
       players_count: playersCount,
       wins: wins ?? 0,

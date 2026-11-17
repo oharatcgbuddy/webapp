@@ -41,6 +41,7 @@ async function NewTournament({ params }: { params: Promise<{ slug: string }> }) 
           max_players: "",
           prizes: "",
           notes: "",
+          bandai_url: "",
           status: "scheduled",
         }}
       />

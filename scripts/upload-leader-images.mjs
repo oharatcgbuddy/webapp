@@ -5,8 +5,13 @@
 //   SUPABASE_URL=https://<progetto>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<chiave> \
 //     npm run images:leaders -- <cartella> [--go]
 //
-// I file della cartella si chiamano come il codice del leader: OP01-001.png, ST01-001.jpg…
-// Senza --go è una PROVA: mostra cosa farebbe e quanto pesa, senza caricare nulla.
+// I file si chiamano come il codice del leader (OP01-001.png, ST01-001.jpg…) e possono stare anche
+// in sottocartelle (una per set): si legge tutto l'albero. I file "_small" si ignorano (le miniature
+// le genera lo script) e si caricano solo i codici che esistono tra i leader.
+//
+// Opzioni:
+//   --go                 carica davvero. Senza, è una PROVA: mostra cosa farebbe e quanto pesa.
+//   --only=OP01-001,...  limita il lavoro a questi codici (utile per provare con una sola carta).
 
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
@@ -24,6 +29,8 @@ const SIZES = [
 const args = process.argv.slice(2);
 const go = args.includes("--go");
 const dir = args.find((a) => !a.startsWith("--"));
+const onlyArg = args.find((a) => a.startsWith("--only="));
+const only = onlyArg ? new Set(onlyArg.slice(7).split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)) : null;
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -44,7 +51,16 @@ if (leadersError) {
 }
 const known = new Set(leaders.map((l) => l.card_code));
 
-const files = (await readdir(dir)).filter((f) => FILE.test(f)).sort();
+// Albero completo; per ogni codice si tiene un solo file (il primo in ordine alfabetico).
+const byCode = new Map();
+for (const rel of (await readdir(dir, { recursive: true })).sort()) {
+  const m = FILE.exec(path.basename(rel));
+  if (!m) continue; // include i "_small" e i file che non sono carte (es. Don)
+  const code = m[1].toUpperCase();
+  if (only && !only.has(code)) continue;
+  if (!byCode.has(code)) byCode.set(code, rel);
+}
+const files = [...byCode.values()];
 if (files.length === 0) {
   console.error(`Nessun file con nome tipo OP01-001.png in ${dir}`);
   process.exit(1);
@@ -52,13 +68,14 @@ if (files.length === 0) {
 
 let total = 0;
 let done = 0;
-const skipped = [];
+let notLeaders = 0;
 const failed = [];
 
 for (const file of files) {
-  const code = FILE.exec(file)[1].toUpperCase();
+  const code = FILE.exec(path.basename(file))[1].toUpperCase();
+  // Le carte che non sono leader (la maggior parte della cartella) si ignorano in silenzio.
   if (!known.has(code)) {
-    skipped.push(`${file} (codice sconosciuto)`);
+    notLeaders++;
     continue;
   }
 
@@ -100,7 +117,9 @@ for (const file of files) {
 }
 
 console.log(`\n${go ? "Caricati" : "Da caricare"}: ${done} leader, ${(total / 1024 / 1024).toFixed(2)} MB in totale.`);
-if (skipped.length) console.log(`Saltati (${skipped.length}):\n  ${skipped.join("\n  ")}`);
+console.log(`Carte della cartella che non sono leader (ignorate): ${notLeaders}.`);
+const missing = [...known].filter((c) => !byCode.has(c) && (!only || only.has(c)));
+if (missing.length) console.log(`Leader senza immagine nella cartella (${missing.length}): ${missing.join(" ")}`);
 if (failed.length) {
   console.log(`Errori (${failed.length}):\n  ${failed.join("\n  ")}`);
   process.exit(2);

@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { ChangeDeck, type DeckOption } from "../change-deck";
 import { CloseForm } from "./close-form";
 import { RoundForm } from "./round-form";
 import { StartForm } from "./start-form";
@@ -94,14 +95,21 @@ async function TrackLoader() {
   }
 
   // --- Track aperto ---
-  const [{ data: details }, { data: matchData }] = await Promise.all([
-    op.from("participation_details").select("leader_code").eq("participation_id", open.id).maybeSingle(),
+  const [{ data: details }, { data: matchData }, { data: myDecks }] = await Promise.all([
+    op.from("participation_details").select("leader_code, deck_id").eq("participation_id", open.id).maybeSingle(),
     op
       .from("matches")
       .select("round, opponent_leader_code, won_dice, result, notes")
       .eq("participation_id", open.id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
+    op
+      .from("decks")
+      .select("id, name, leader_code")
+      .eq("owner_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .overrideTypes<DeckOption[], { merge: false }>(),
   ]);
 
   const matches = matchData ?? [];
@@ -158,6 +166,8 @@ async function TrackLoader() {
       )}
 
       <RoundForm key={matches.length + 1} round={matches.length + 1} leaders={allLeaders} />
+
+      <ChangeDeck participationId={open.id} currentDeckId={details?.deck_id ?? null} decks={myDecks ?? []} />
 
       <CloseForm />
     </main>

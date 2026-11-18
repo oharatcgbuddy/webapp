@@ -80,6 +80,7 @@ export function DeckEditor({
   const [limit, setLimit] = useState(VISIBLE);
   const [msg, setMsg] = useState<Msg>(null);
   const [importText, setImportText] = useState("");
+  const [copied, setCopied] = useState<"" | "ok" | "err">("");
   const [pending, startTransition] = useTransition();
 
   const total = deckTotal(entries);
@@ -150,6 +151,19 @@ export function DeckEditor({
         setMsg({ ok: false, text: res.error ?? "Non sono riuscito a salvare." });
       }
     });
+
+  // Copia negli appunti il mazzo nel formato "4xOP01-013", una carta per riga.
+  // L'esito si vede sul pulsante stesso, che sta in fondo alla pagina.
+  const copy = async () => {
+    let result: "ok" | "err" = "ok";
+    try {
+      await navigator.clipboard.writeText(deckToText(entries));
+    } catch {
+      result = "err";
+    }
+    setCopied(result);
+    setTimeout(() => setCopied(""), 2500);
+  };
 
   const doImport = () => {
     const parsed = parseDecklist(importText, { requireFull: false });
@@ -348,10 +362,14 @@ export function DeckEditor({
 
       <section className="brutal-card space-y-3 p-4">
         <h2 className="font-black uppercase">Testo del mazzo</h2>
-        <label className="block text-sm font-bold uppercase">
-          Esporta
-          <textarea readOnly rows={6} value={deckToText(entries)} className={`${field} mt-1 font-mono text-xs normal-case`} />
-        </label>
+        <button
+          type="button"
+          onClick={copy}
+          disabled={total === 0}
+          className={`brutal-btn w-full disabled:opacity-50 ${copied === "ok" ? "bg-brand-green" : copied === "err" ? "bg-brand-red" : "bg-white"}`}
+        >
+          {copied === "ok" ? `Copiato ✓ (${total} carte)` : copied === "err" ? "Non riesco a copiare" : "Copia il mazzo"}
+        </button>
         <label className="block text-sm font-bold uppercase">
           Importa (sostituisce il mazzo)
           <textarea

@@ -71,7 +71,7 @@ function toMatchups(raw: RawMatch[], leaders: Map<string, LeaderRow>): ImageMatc
   return raw.slice(0, 16).map((m) => {
     const code = m.opponent_leader_code ?? m.opponent_code ?? null;
     const l = code ? leaders.get(code) : undefined;
-    const result = m.result === "win" || m.result === "loss" || m.result === "draw" || m.result === "bye" ? m.result : "loss";
+    const result = m.result === "win" || m.result === "loss" || m.result === "bye" ? m.result : "loss";
     return {
       round: m.round,
       opponent_code: l ? code : null,
@@ -85,10 +85,10 @@ function toMatchups(raw: RawMatch[], leaders: Map<string, LeaderRow>): ImageMatc
 }
 
 // "WINNER" al primo posto, altrimenti il record (es. "6-1" o "5-1-1").
-function resultLabels(wins: number, losses: number, draws: number, placement: number | null, players: number | null) {
+function resultLabels(wins: number, losses: number, placement: number | null, players: number | null) {
   const winner = placement === 1;
   return {
-    result_label: winner ? "WINNER" : `${wins}-${losses}${draws > 0 ? `-${draws}` : ""}`,
+    result_label: winner ? "WINNER" : `${wins}-${losses}`,
     result_winner: winner,
     placement_text: placement ? `${placement}° ${players ? `su ${players}` : ""}`.trim() : null,
   };
@@ -139,7 +139,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
   const { data: p } = await supabase
     .from("participations")
     .select(
-      "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, closed_at, tournaments(title, starts_at, shops(name, logo_url))",
+      "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, closed_at, tournaments(title, starts_at, shops(name, logo_url))",
     )
     .eq("id", id)
     .eq("user_id", auth.user.id)
@@ -153,7 +153,6 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
         players_count: number | null;
         wins: number;
         losses: number;
-        draws: number;
         closed_at: string | null;
         tournaments: { title: string; starts_at: string; shops: ShopRow | null } | null;
       },
@@ -192,7 +191,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
       title: who?.alias || who?.display_name || "Giocatore",
       leader: { code: leader.card_code, name: leader.name, colors: leader.colors, image_path: leader.image_path },
       cards,
-      ...resultLabels(p.wins, p.losses, p.draws, p.placement, p.players_count),
+      ...resultLabels(p.wins, p.losses, p.placement, p.players_count),
       tournament: p.tournaments?.title ?? p.standalone_label,
       date: fmtDate(p.tournaments?.starts_at ?? p.played_on),
       shop: shopOf(p.tournaments?.shops),
@@ -206,7 +205,7 @@ export async function buildTournamentResultImage(supabase: Supabase, id: string)
   const op = supabase.schema("onepiece");
   const { data: r } = await op
     .from("tournament_results")
-    .select("id, player_name, leader_code, decklist, placement, wins, losses, draws, matchups, tournament_id")
+    .select("id, player_name, leader_code, decklist, placement, wins, losses, matchups, tournament_id")
     .eq("id", id)
     .maybeSingle()
     .overrideTypes<
@@ -218,7 +217,6 @@ export async function buildTournamentResultImage(supabase: Supabase, id: string)
         placement: number | null;
         wins: number;
         losses: number;
-        draws: number;
         matchups: RawMatch[];
         tournament_id: string;
       },
@@ -247,7 +245,7 @@ export async function buildTournamentResultImage(supabase: Supabase, id: string)
       title: r.player_name,
       leader: { code: leader.card_code, name: leader.name, colors: leader.colors, image_path: leader.image_path },
       cards,
-      ...resultLabels(r.wins, r.losses, r.draws, r.placement, t?.max_players ?? null),
+      ...resultLabels(r.wins, r.losses, r.placement, t?.max_players ?? null),
       tournament: t?.title ?? null,
       date: t ? fmtDate(t.starts_at) : null,
       shop: shopOf(t?.shops),

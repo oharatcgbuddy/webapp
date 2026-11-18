@@ -36,10 +36,10 @@ function Fields({ leaders, pending, state }: { leaders: LeaderOpt[]; pending: bo
           Piazzamento (1 = vincitore)
           <input name="placement" type="number" inputMode="numeric" min={1} max={1024} className={`${field} mt-1`} />
         </label>
-        <div className="grid grid-cols-3 gap-2">
-          {(["wins", "losses", "draws"] as const).map((k) => (
+        <div className="grid grid-cols-2 gap-2">
+          {(["wins", "losses"] as const).map((k) => (
             <label key={k} className="block text-xs font-bold uppercase">
-              {k === "wins" ? "Vinte" : k === "losses" ? "Perse" : "Pari"}
+              {k === "wins" ? "Vinte" : "Perse"}
               <input name={k} type="number" inputMode="numeric" min={0} max={30} className={`${field} mt-1`} />
             </label>
           ))}
@@ -58,7 +58,6 @@ function Fields({ leaders, pending, state }: { leaders: LeaderOpt[]; pending: bo
               <option value="">Esito…</option>
               <option value="win">Vinto</option>
               <option value="loss">Perso</option>
-              <option value="draw">Pari</option>
               <option value="bye">BYE (vinto, senza avversario)</option>
             </select>
             {/* Sempre presenti (anche per il BYE) così le righe inviate restano allineate: si nascondono soltanto. */}

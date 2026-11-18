@@ -11,7 +11,7 @@ export type ResultState = { error?: string; ok?: boolean };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9-]{1,80}$/;
 const CODE = /^[A-Z0-9]+-\d{3}$/;
-const RESULTS = ["win", "loss", "draw", "bye"] as const;
+const RESULTS = ["win", "loss", "bye"] as const; // il pareggio non esiste in One Piece
 type Outcome = (typeof RESULTS)[number];
 
 // Il gestore (membro o admin) deve possedere il negozio che organizza il torneo.
@@ -88,16 +88,13 @@ export async function createResult(slug: string, tournamentId: string, _prev: Re
   // Con gli scontri il record si calcola da lì (il BYE conta come vinto); altrimenti si usano i numeri scritti.
   let wins: number | null | "bad";
   let losses: number | null | "bad";
-  let draws: number | null | "bad";
   if (matchups.length > 0) {
     wins = matchups.filter((m) => m.result === "win" || m.result === "bye").length;
     losses = matchups.filter((m) => m.result === "loss").length;
-    draws = matchups.filter((m) => m.result === "draw").length;
   } else {
     wins = int(fd, "wins", 0, 30);
     losses = int(fd, "losses", 0, 30);
-    draws = int(fd, "draws", 0, 30);
-    if (wins === "bad" || losses === "bad" || draws === "bad") return { error: "Vittorie, sconfitte e pareggi devono essere numeri da 0 a 30." };
+    if (wins === "bad" || losses === "bad") return { error: "Vittorie e sconfitte devono essere numeri da 0 a 30." };
   }
 
   const { error } = await ctx.op.from("tournament_results").insert({
@@ -108,7 +105,6 @@ export async function createResult(slug: string, tournamentId: string, _prev: Re
     placement,
     wins: wins ?? 0,
     losses: losses ?? 0,
-    draws: draws ?? 0,
     matchups,
   });
   if (error) return { error: "Non sono riuscito a salvare il risultato. Riprova." };

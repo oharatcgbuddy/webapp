@@ -15,7 +15,6 @@ type Detail = {
   players_count: number | null;
   wins: number;
   losses: number;
-  draws: number;
   notes: string | null;
   closed_at: string | null;
   tournaments: { id: string; title: string } | null;
@@ -26,7 +25,7 @@ type MatchRow = {
   opponent_leader_code: string | null;
   opponent_name: string | null;
   won_dice: boolean | null;
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   notes: string | null;
 };
 
@@ -37,7 +36,7 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", week
 const RESULT = {
   win: { text: "Vinto", cls: "bg-brand-green" },
   loss: { text: "Perso", cls: "bg-brand-red" },
-  draw: { text: "Pari", cls: "bg-brand-yellow" },
+  bye: { text: "BYE", cls: "bg-brand-pink" },
 } as const;
 
 async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +52,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
     supabase
       .from("participations")
       .select(
-        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, draws, notes, closed_at, tournaments(id, title), tcgs!inner(slug)",
+        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, notes, closed_at, tournaments(id, title), tcgs!inner(slug)",
       )
       .eq("tcgs.slug", "onepiece")
       .eq("id", id)
@@ -117,7 +116,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
         )}
         <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
           <span className="border-2 border-ink bg-brand-green px-2 py-1">
-            {data.wins}V · {data.losses}S · {data.draws}P
+            {data.wins}V · {data.losses}S
           </span>
           {data.placement && (
             <span className="border-2 border-ink bg-brand-yellow px-2 py-1">
@@ -143,7 +142,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
                 <div>
                   <p className="text-xs font-bold uppercase">Round {m.round}</p>
                   <p className="font-bold leading-tight">
-                    {label(m.opponent_leader_code) ?? m.opponent_name ?? "Avversario n/d"}
+                    {m.result === "bye" ? "Nessun avversario" : (label(m.opponent_leader_code) ?? m.opponent_name ?? "Avversario n/d")}
                   </p>
                   {m.won_dice !== null && <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>}
                   {m.notes && <p className="mt-1 text-sm italic">{m.notes}</p>}

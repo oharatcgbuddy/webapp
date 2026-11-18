@@ -6,7 +6,7 @@ import { LeaderPicker, type LeaderOpt } from "../track/leader-picker";
 
 type TournamentOpt = { id: string; label: string };
 type MatchRow = {
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   on_play: "" | "yes" | "no";
   opponent_name: string;
   notes: string;
@@ -89,10 +89,10 @@ export function ResultForm({
           <p className="text-sm">L&apos;elenco dei leader sarà disponibile con il catalogo carte.</p>
         )}
 
-        <div className="grid grid-cols-3 gap-2">
-          {(["wins", "losses", "draws"] as const).map((k) => (
+        <div className="grid grid-cols-2 gap-2">
+          {(["wins", "losses"] as const).map((k) => (
             <label key={k} className={label}>
-              {k === "wins" ? "Vitt." : k === "losses" ? "Sconf." : "Pareg."}
+              {k === "wins" ? "Vitt." : "Sconf."}
               <input type="number" inputMode="numeric" name={k} min={0} max={99} defaultValue={0} className={field} />
             </label>
           ))}
@@ -123,7 +123,7 @@ export function ResultForm({
               >
                 <option value="win">Vittoria</option>
                 <option value="loss">Sconfitta</option>
-                <option value="draw">Pareggio</option>
+                <option value="bye">BYE (vinto, senza avversario)</option>
               </select>
               <select
                 aria-label={`Turno round ${i + 1}`}

@@ -26,7 +26,7 @@ function int(fd: FormData, key: string, min: number, max: number): number | null
 }
 
 type MatchInput = {
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   on_play: boolean | null;
   opponent_name: string | null;
   notes: string | null;
@@ -42,15 +42,15 @@ function parseMatches(raw: string): MatchInput[] | { error: string } | null {
     for (const item of arr) {
       if (typeof item !== "object" || item === null) return null;
       const m = item as Record<string, unknown>;
-      if (m.result !== "win" && m.result !== "loss" && m.result !== "draw") return null;
+      if (m.result !== "win" && m.result !== "loss" && m.result !== "bye") return null;
       const note = cleanNote(typeof m.notes === "string" ? m.notes.slice(0, 1000) : "");
       if ("error" in note) return { error: `Round ${out.length + 1}: ${note.error}` };
       out.push({
         notes: note.value,
         result: m.result,
-        on_play: m.on_play === "yes" ? true : m.on_play === "no" ? false : null,
+        on_play: m.result !== "bye" && m.on_play === "yes" ? true : m.result !== "bye" && m.on_play === "no" ? false : null,
         opponent_name:
-          typeof m.opponent_name === "string" && m.opponent_name.trim()
+          m.result !== "bye" && typeof m.opponent_name === "string" && m.opponent_name.trim()
             ? m.opponent_name.trim().slice(0, 60)
             : null,
       });
@@ -73,14 +73,13 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const leaderCode = text(fd, "leader_code", 20) || null;
   const wins = int(fd, "wins", 0, 99);
   const losses = int(fd, "losses", 0, 99);
-  const draws = int(fd, "draws", 0, 99);
   const placement = int(fd, "placement", 1, 9999);
   const playersCount = int(fd, "players_count", 1, 9999);
   const notes = text(fd, "notes", 1000) || null;
   const matches = parseMatches(text(fd, "matches", 4000));
 
-  if ([wins, losses, draws, placement, playersCount].some((n) => Number.isNaN(n))) {
-    return { error: "Controlla i numeri inseriti (vittorie, sconfitte, pareggi, piazzamento)." };
+  if ([wins, losses, placement, playersCount].some((n) => Number.isNaN(n))) {
+    return { error: "Controlla i numeri inseriti (vittorie, sconfitte, piazzamento)." };
   }
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
@@ -171,7 +170,6 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
       players_count: playersCount,
       wins: wins ?? 0,
       losses: losses ?? 0,
-      draws: draws ?? 0,
       notes,
     })
     .select("id")

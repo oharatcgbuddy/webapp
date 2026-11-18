@@ -181,9 +181,11 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
   const opponent = text(fd, "opponent_leader", 20);
   const dice = text(fd, "dice", 4);
   const result = text(fd, "result", 4);
-  if (!opponent) return { error: "Scegli il leader avversario." };
-  if (dice !== "won" && dice !== "lost") return { error: "Indica se hai vinto il dado." };
-  if (result !== "win" && result !== "loss" && result !== "draw") return { error: "Indica l'esito del round." };
+  if (result !== "win" && result !== "loss" && result !== "bye") return { error: "Indica l'esito del round." };
+  // Il BYE è un turno di riposo: conta come vinto e non ha avversario né dado. Il pareggio non esiste.
+  const isBye = result === "bye";
+  if (!isBye && !opponent) return { error: "Scegli il leader avversario." };
+  if (!isBye && dice !== "won" && dice !== "lost") return { error: "Indica se hai vinto il dado." };
   // Si legge più lungo del massimo per accorgersi dei testi troppo lunghi invece di tagliarli in silenzio.
   const note = cleanNote(text(fd, "notes", 1000));
   if ("error" in note) return { error: note.error };
@@ -202,8 +204,8 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
   const { error } = await op.from("matches").insert({
     participation_id: pid,
     round,
-    opponent_leader_code: opponent,
-    won_dice: dice === "won",
+    opponent_leader_code: isBye ? null : opponent,
+    won_dice: isBye ? null : dice === "won",
     result,
     notes: note.value,
   });
@@ -266,9 +268,8 @@ export async function closeTrack(_prev: ActionState, fd: FormData): Promise<Acti
   const { error } = await supabase
     .from("participations")
     .update({
-      wins: count("win"),
+      wins: count("win") + count("bye"), // il BYE conta come vinto
       losses: count("loss"),
-      draws: count("draw"),
       placement,
       players_count: playersCount,
       closed_at: new Date().toISOString(),

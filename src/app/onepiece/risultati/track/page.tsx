@@ -17,7 +17,7 @@ type MatchRow = {
   round: number;
   opponent_leader_code: string | null;
   won_dice: boolean | null;
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   notes: string | null;
 };
 
@@ -26,7 +26,7 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day:
 const RESULT = {
   win: { text: "Vinto", cls: "bg-brand-green" },
   loss: { text: "Perso", cls: "bg-brand-red" },
-  draw: { text: "Pari", cls: "bg-brand-yellow" },
+  bye: { text: "BYE", cls: "bg-brand-pink" },
 } as const;
 
 async function TrackLoader() {
@@ -120,7 +120,7 @@ async function TrackLoader() {
           </p>
         )}
         <p className="mt-2 inline-block border-2 border-ink bg-brand-yellow px-2 py-1 text-sm font-bold">
-          {count("win")}V · {count("loss")}S · {count("draw")}P
+          {count("win") + count("bye")}V · {count("loss")}S
         </p>
       </section>
 
@@ -134,7 +134,9 @@ async function TrackLoader() {
                   <p className="font-bold leading-tight">
                     {m.opponent_leader_code
                       ? `${m.opponent_leader_code} · ${names.get(m.opponent_leader_code) ?? ""}`
-                      : "Avversario n/d"}
+                      : m.result === "bye"
+                        ? "Nessun avversario"
+                        : "Avversario n/d"}
                   </p>
                   {m.won_dice !== null && (
                     <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>

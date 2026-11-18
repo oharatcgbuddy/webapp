@@ -74,7 +74,7 @@ class Matchup(BaseModel):
     opponent_colors: list[str] = Field(default_factory=list, max_length=4)
     opponent_image_path: str | None = Field(default=None, max_length=100)
     dice_won: bool | None = None
-    result: Literal["win", "loss", "draw", "bye"]  # bye = turno di riposo: conta come vinto, senza dado
+    result: Literal["win", "loss", "bye"]  # bye = turno di riposo: conta come vinto, senza dado
 
 
 class Shop(BaseModel):
@@ -352,7 +352,7 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
         y += gap + 4
         brutal(d, (PAD, y, W - PAD, y + match_h), fill=WHITE)
         text(d, (PAD + 28, y + 24), "Scontri", font(26, 700), anchor="la")
-        verdict = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "draw": ("PARI", YELLOW), "bye": ("BYE", PINK)}
+        verdict = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "bye": ("BYE", PINK)}
         colw = (W - 2 * PAD - 56 - 24) / 2
         for i, m in enumerate(req.matchups):
             if compact:

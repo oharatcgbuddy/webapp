@@ -13,7 +13,6 @@ type Row = {
   players_count: number | null;
   wins: number;
   losses: number;
-  draws: number;
   tournaments: { title: string } | null;
 };
 
@@ -31,7 +30,7 @@ function BucketList({ title, rows, names }: { title: string; rows: Bucket[]; nam
               {b.code} · {names.get(b.code) ?? ""}
             </span>
             <span className="shrink-0 font-bold">
-              {winRate(b)}% <span className="font-normal">({b.wins}-{b.losses}-{b.draws})</span>
+              {winRate(b)}% <span className="font-normal">({b.wins}-{b.losses})</span>
             </span>
           </li>
         ))}
@@ -48,7 +47,7 @@ async function Results() {
 
   const { data, error } = await supabase
     .from("participations")
-    .select("id, played_on, standalone_label, placement, players_count, wins, losses, draws, tournaments(title), tcgs!inner(slug)")
+    .select("id, played_on, standalone_label, placement, players_count, wins, losses, tournaments(title), tcgs!inner(slug)")
     .eq("tcgs.slug", "onepiece")
     .eq("user_id", auth.user?.id ?? "")
     .not("closed_at", "is", null) // i track in corso si vedono solo in /risultati/track
@@ -91,10 +90,10 @@ async function Results() {
   );
   const names = new Map((leaderData ?? []).map((l) => [l.card_code, l.name]));
   const total = data.reduce(
-    (acc, r) => ({ w: acc.w + r.wins, l: acc.l + r.losses, d: acc.d + r.draws }),
-    { w: 0, l: 0, d: 0 },
+    (acc, r) => ({ w: acc.w + r.wins, l: acc.l + r.losses }),
+    { w: 0, l: 0 },
   );
-  const totalGames = total.w + total.l + total.d;
+  const totalGames = total.w + total.l;
 
   return (
     <>
@@ -102,7 +101,7 @@ async function Results() {
         <h2 className="text-lg font-black uppercase">Statistiche</h2>
         <p className="flex flex-wrap gap-2 text-xs font-bold">
           <span className="border-2 border-ink bg-brand-green px-2 py-1">
-            {total.w}V · {total.l}S · {total.d}P
+            {total.w}V · {total.l}S
           </span>
           {totalGames > 0 && (
             <span className="border-2 border-ink bg-brand-yellow px-2 py-1">
@@ -133,7 +132,7 @@ async function Results() {
             </h2>
             <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
               <span className="border-2 border-ink bg-brand-green px-2 py-1">
-                {r.wins}V · {r.losses}S · {r.draws}P
+                {r.wins}V · {r.losses}S
               </span>
               {r.placement && (
                 <span className="border-2 border-ink bg-brand-yellow px-2 py-1">
@@ -194,7 +193,7 @@ async function LiveTrack() {
       </p>
       <p className="mt-1 text-xl font-black leading-tight">{open.tournaments?.title ?? open.standalone_label}</p>
       <p className="mt-1 text-sm font-bold">
-        {count("win")}V · {count("loss")}S · {count("draw")}P
+        {count("win") + count("bye")}V · {count("loss")}S
         {rounds === 0 ? " · nessun round ancora" : rounds === 1 ? " · 1 round giocato" : ` · ${rounds} round giocati`}
       </p>
       <span className="mt-3 inline-block border-[3px] border-ink bg-white px-3 py-2 font-bold">Continua →</span>

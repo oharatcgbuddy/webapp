@@ -35,7 +35,7 @@ export type ImageMatchup = {
   opponent_colors: string[];
   opponent_image_path: string | null;
   dice_won: boolean | null;
-  result: "win" | "loss" | "draw" | "bye";
+  result: "win" | "loss" | "bye";
 };
 
 export type ImageBody = {

@@ -17,7 +17,6 @@ type ResultRow = {
   placement: number | null;
   wins: number;
   losses: number;
-  draws: number;
 };
 
 const SLUG = /^[a-z0-9-]{1,80}$/;
@@ -47,7 +46,7 @@ async function Results({ params }: { params: Promise<{ slug: string; id: string 
   const [{ data: results }, { data: leaders }] = await Promise.all([
     op
       .from("tournament_results")
-      .select("id, player_name, leader_code, placement, wins, losses, draws")
+      .select("id, player_name, leader_code, placement, wins, losses")
       .eq("tournament_id", id)
       .order("placement", { ascending: true, nullsFirst: false })
       .order("created_at", { ascending: true })
@@ -83,7 +82,7 @@ async function Results({ params }: { params: Promise<{ slug: string; id: string 
                     </p>
                     <p className="text-xs font-bold">
                       {r.placement ? `${r.placement}° · ` : ""}
-                      {r.wins}V · {r.losses}S · {r.draws}P
+                      {r.wins}V · {r.losses}S
                     </p>
                   </div>
                   <form action={deleteResult.bind(null, slug, id)}>

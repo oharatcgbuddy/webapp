@@ -50,6 +50,12 @@ export function TabBar() {
       color: "bg-brand-green",
       active: pathname.startsWith(`${base}/risultati`),
     },
+    {
+      href: `${base}/mazzi`,
+      label: "Mazzi",
+      color: "bg-brand-red",
+      active: pathname.startsWith(`${base}/mazzi`),
+    },
     { href: "/profilo", label: "Profilo", color: "bg-brand-pink", active: pathname.startsWith("/profilo") },
   ];
 
@@ -58,13 +64,13 @@ export function TabBar() {
       aria-label="Navigazione principale"
       className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-md border-t-[3px] border-ink bg-paper pb-[env(safe-area-inset-bottom)]"
     >
-      <ul className="grid grid-cols-4">
+      <ul className="grid grid-cols-5">
         {tabs.map((tab) => (
           <li key={tab.label} className="border-b-[3px] border-r-[3px] border-ink last:border-r-0">
             <Link
               href={tab.href}
               aria-current={tab.active ? "page" : undefined}
-              className={`block px-1 py-4 text-center text-sm font-bold ${tab.active ? tab.color : ""}`}
+              className={`block px-0.5 py-4 text-center text-[13px] font-bold ${tab.active ? tab.color : ""}`}
             >
               {tab.label}
             </Link>

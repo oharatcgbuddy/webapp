@@ -47,6 +47,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# servizio immagini (Python): ambiente locale e cache
+/services/image-api/.venv/
+__pycache__/
+
 # SQL di inizializzazione di produzione, generato da scripts/build-prod-bootstrap.mjs
 /supabase/prod/
 

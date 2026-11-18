@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { ChangeDeck, type DeckOption } from "../change-deck";
 import { CloseForm } from "./close-form";
 import { RoundForm } from "./round-form";
 import { StartForm } from "./start-form";
@@ -17,7 +18,7 @@ type MatchRow = {
   round: number;
   opponent_leader_code: string | null;
   won_dice: boolean | null;
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   notes: string | null;
 };
 
@@ -26,7 +27,7 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", day:
 const RESULT = {
   win: { text: "Vinto", cls: "bg-brand-green" },
   loss: { text: "Perso", cls: "bg-brand-red" },
-  draw: { text: "Pari", cls: "bg-brand-yellow" },
+  bye: { text: "BYE", cls: "bg-brand-pink" },
 } as const;
 
 async function TrackLoader() {
@@ -69,7 +70,7 @@ async function TrackLoader() {
     const from = new Date(nowDate.getTime() - 24 * 3600 * 1000).toISOString();
     const to = new Date(nowDate.getTime() + 12 * 3600 * 1000).toISOString();
 
-    const [{ data: tournaments }, { data: decks }] = await Promise.all([
+    const [{ data: tournaments }, { data: decks }, { data: shops }] = await Promise.all([
       supabase
         .from("tournaments")
         .select("id, title, starts_at")
@@ -79,6 +80,7 @@ async function TrackLoader() {
         .order("starts_at", { ascending: true })
         .limit(50),
       op.from("decks").select("id, name").eq("owner_id", uid).order("created_at", { ascending: false }).limit(50),
+      supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
     ]);
 
     return (
@@ -89,19 +91,27 @@ async function TrackLoader() {
         }))}
         leaders={allLeaders}
         decks={decks ?? []}
+        shops={(shops ?? []).map((s) => ({ id: s.id, label: s.city ? `${s.name} (${s.city})` : s.name }))}
       />
     );
   }
 
   // --- Track aperto ---
-  const [{ data: details }, { data: matchData }] = await Promise.all([
-    op.from("participation_details").select("leader_code").eq("participation_id", open.id).maybeSingle(),
+  const [{ data: details }, { data: matchData }, { data: myDecks }] = await Promise.all([
+    op.from("participation_details").select("leader_code, deck_id").eq("participation_id", open.id).maybeSingle(),
     op
       .from("matches")
       .select("round, opponent_leader_code, won_dice, result, notes")
       .eq("participation_id", open.id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
+    op
+      .from("decks")
+      .select("id, name, leader_code")
+      .eq("owner_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(100)
+      .overrideTypes<DeckOption[], { merge: false }>(),
   ]);
 
   const matches = matchData ?? [];
@@ -120,7 +130,7 @@ async function TrackLoader() {
           </p>
         )}
         <p className="mt-2 inline-block border-2 border-ink bg-brand-yellow px-2 py-1 text-sm font-bold">
-          {count("win")}V · {count("loss")}S · {count("draw")}P
+          {count("win") + count("bye")}V · {count("loss")}S
         </p>
       </section>
 
@@ -134,7 +144,9 @@ async function TrackLoader() {
                   <p className="font-bold leading-tight">
                     {m.opponent_leader_code
                       ? `${m.opponent_leader_code} · ${names.get(m.opponent_leader_code) ?? ""}`
-                      : "Avversario n/d"}
+                      : m.result === "bye"
+                        ? "Nessun avversario"
+                        : "Avversario n/d"}
                   </p>
                   {m.won_dice !== null && (
                     <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>
@@ -156,6 +168,8 @@ async function TrackLoader() {
       )}
 
       <RoundForm key={matches.length + 1} round={matches.length + 1} leaders={allLeaders} />
+
+      <ChangeDeck participationId={open.id} currentDeckId={details?.deck_id ?? null} decks={myDecks ?? []} />
 
       <CloseForm />
     </main>

@@ -14,7 +14,16 @@ function parse(lat: string, lng: string): LatLng | null {
 const round = (n: number) => Math.round(n * 1e5) / 1e5;
 
 // Il gestore tocca la mappa (o trascina il segnaposto) per indicare dove si trova il negozio.
-export function LocationPicker({ initialLat, initialLng }: { initialLat: string; initialLng: string }) {
+export function LocationPicker({
+  initialLat,
+  initialLng,
+  target = null,
+}: {
+  initialLat: string;
+  initialLng: string;
+  // Posizione scelta da un suggerimento di indirizzo: sposta segnaposto e mappa (n cambia a ogni scelta).
+  target?: { lat: number; lng: number; n: number } | null;
+}) {
   const start = useMemo(() => parse(initialLat, initialLng), [initialLat, initialLng]);
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -74,6 +83,14 @@ export function LocationPicker({ initialLat, initialLng }: { initialLat: string;
       mapRef.current = null;
     };
   }, [start]);
+
+  // Un suggerimento di indirizzo scelto nel form sposta il segnaposto e centra la mappa.
+  useEffect(() => {
+    if (!target) return;
+    place({ lat: target.lat, lng: target.lng });
+    mapRef.current?.flyTo({ center: [target.lng, target.lat], zoom: 17 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- si reagisce solo a una nuova scelta (target.n)
+  }, [target?.n]);
 
   function useMyPosition() {
     setError(null);

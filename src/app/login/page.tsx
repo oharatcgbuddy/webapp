@@ -6,6 +6,7 @@ export default function LoginPage() {
     <main className="flex min-h-dvh flex-col justify-center gap-8 bg-brand-yellow p-6">
       <div className="space-y-3">
         <Image
+          unoptimized
           src="/logo.png"
           alt="Ohara TCG Buddy"
           width={192}

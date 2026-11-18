@@ -6,9 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 import { romeLocalToIso } from "@/lib/datetime";
 import { BANDAI_LINK_ERROR, BANDAI_SOURCE, parseBandaiEventLink } from "@/lib/bandai";
 import { parseShopFields } from "@/lib/shop-fields";
-import { canManageShop } from "@/lib/shop-access";
+import { canManageShop, isAdmin } from "@/lib/shop-access";
+import { shopLogoPathOk } from "@/lib/shop-logo";
 
-export type ActionState = { error?: string; ok?: boolean };
+// `claim`: l'evento Bandai è già un torneo della comunità e il gestore deve confermare il riscatto.
+export type ActionState = { error?: string; ok?: boolean; claim?: { title: string } };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9-]{1,80}$/;
@@ -54,6 +56,25 @@ export async function updateShop(slug: string, _prev: ActionState, fd: FormData)
 
   revalidatePath(`/gestore/${slug}`);
   revalidatePath(`/negozi/${slug}`);
+  return { ok: true };
+}
+
+// Salva il percorso del logo appena caricato nel bucket "shop-logos" e toglie quello vecchio.
+export async function setShopLogo(slug: string, path: string): Promise<ActionState> {
+  const ctx = await managedShop(slug);
+  if (!ctx) return NO_ACCESS;
+  if (!shopLogoPathOk(path, ctx.shopId)) return { error: "Logo non valido." };
+
+  const { data: before } = await ctx.supabase.from("shops").select("logo_url").eq("id", ctx.shopId).maybeSingle();
+  const { data, error } = await ctx.supabase.from("shops").update({ logo_url: path }).eq("id", ctx.shopId).select("id");
+  if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare il logo." };
+
+  const old = before?.logo_url as string | null | undefined;
+  if (old && old !== path && shopLogoPathOk(old, ctx.shopId)) {
+    await ctx.supabase.storage.from("shop-logos").remove([old]);
+  }
+
+  revalidatePath(`/gestore/${slug}`);
   return { ok: true };
 }
 
@@ -114,6 +135,37 @@ export async function createTournament(slug: string, _prev: ActionState, fd: For
   const parsed = parseTournament(fd);
   if ("error" in parsed) return { error: parsed.error };
 
+  // Evento Bandai già segnalato dai giocatori (torneo della comunità, senza locale): il locale lo può riscattare.
+  // I risultati già registrati restano collegati. Se l'evento è di un altro locale, resta l'errore di prima.
+  const v = parsed.values;
+  if (v.external_id) {
+    const { data: existing } = await ctx.supabase
+      .from("tournaments")
+      .select("id, title, shop_id")
+      .eq("external_source", BANDAI_SOURCE)
+      .eq("external_id", v.external_id)
+      .maybeSingle();
+    if (existing) {
+      if (existing.shop_id) return { error: LINK_TAKEN };
+      if (text(fd, "claim", 1) !== "1") return { claim: { title: existing.title as string } };
+      const { error: claimErr } = await ctx.supabase.rpc("claim_community_tournament", {
+        p_shop: ctx.shopId,
+        p_external_id: v.external_id,
+        p_title: v.title,
+        p_starts_at: v.starts_at,
+        p_format_slug: v.format_slug,
+        p_entry_fee_cents: v.entry_fee_cents,
+        p_max_players: v.max_players,
+        p_prizes: v.prizes,
+        p_notes: v.notes,
+        p_status: v.status,
+      });
+      if (claimErr) return { error: "Non sono riuscito a riscattare il torneo. Riprova." };
+      revalidatePath(`/gestore/${slug}`);
+      redirect(`/gestore/${slug}`);
+    }
+  }
+
   const { error } = await ctx.supabase
     .from("tournaments")
     .insert({ ...parsed.values, shop_id: ctx.shopId, created_by: ctx.uid });
@@ -144,6 +196,18 @@ export async function updateTournament(
     .select("id");
   if (error?.code === "23505") return { error: LINK_TAKEN };
   if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare il torneo." };
+
+  revalidatePath(`/gestore/${slug}`);
+  redirect(`/gestore/${slug}`);
+}
+
+// Solo un admin: restituisce alla comunità un torneo riscattato per errore (titolo di prima, senza locale).
+export async function releaseTournament(slug: string, id: string): Promise<void> {
+  const ctx = await managedShop(slug);
+  if (!ctx || !UUID.test(id) || !(await isAdmin(ctx.supabase, ctx.uid))) return;
+
+  const { error } = await ctx.supabase.rpc("release_claimed_tournament", { p_tournament: id });
+  if (error) redirect(`/gestore/${slug}/tornei/${id}?errore=restituisci`);
 
   revalidatePath(`/gestore/${slug}`);
   redirect(`/gestore/${slug}`);

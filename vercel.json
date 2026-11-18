@@ -1,6 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
   "regions": ["fra1"],
-  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" = \"prod\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview\" ] && exit 1; exit 0"
+  "services": {
+    "web": {
+      "root": ".",
+      "framework": "nextjs",
+      "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" = \"prod\" ] || [ \"$VERCEL_GIT_COMMIT_REF\" = \"preview\" ] && exit 1; exit 0",
+      "bindings": [
+        {
+          "type": "service",
+          "service": "images",
+          "format": "url",
+          "env": "IMAGE_API_URL"
+        }
+      ]
+    },
+    "images": {
+      "root": "services/image-api/",
+      "framework": "fastapi",
+      "entrypoint": "main:app",
+      "functions": {
+        "main.py": { "maxDuration": 30 }
+      }
+    }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": { "service": "web" } }]
 }

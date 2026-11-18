@@ -1,11 +1,11 @@
 export type MatchStat = {
   participation_id: string;
-  result: "win" | "loss" | "draw";
+  result: "win" | "loss" | "bye";
   won_dice: boolean | null;
   opponent_leader_code: string | null;
 };
 
-export type Bucket = { code: string; games: number; wins: number; losses: number; draws: number };
+export type Bucket = { code: string; games: number; wins: number; losses: number };
 
 export type Stats = {
   games: number;
@@ -19,12 +19,11 @@ export function winRate(b: { games: number; wins: number }): number {
   return b.games === 0 ? 0 : Math.round((100 * b.wins) / b.games);
 }
 
-function add(map: Map<string, Bucket>, code: string, result: MatchStat["result"]) {
-  const b = map.get(code) ?? { code, games: 0, wins: 0, losses: 0, draws: 0 };
+function add(map: Map<string, Bucket>, code: string, result: "win" | "loss") {
+  const b = map.get(code) ?? { code, games: 0, wins: 0, losses: 0 };
   b.games += 1;
   if (result === "win") b.wins += 1;
-  else if (result === "loss") b.losses += 1;
-  else b.draws += 1;
+  else b.losses += 1;
   map.set(code, b);
 }
 
@@ -37,7 +36,10 @@ export function computeStats(matches: MatchStat[], myLeader: Map<string, string 
   let diceKnown = 0;
   let diceWon = 0;
 
-  for (const m of matches) {
+  // Il BYE non è una partita giocata (niente avversario né dado): resta nel record ma non nelle statistiche.
+  const played = matches.filter((m): m is MatchStat & { result: "win" | "loss" } => m.result !== "bye");
+
+  for (const m of played) {
     const leader = myLeader.get(m.participation_id);
     if (leader) add(mine, leader, m.result);
     if (m.opponent_leader_code) add(opp, m.opponent_leader_code, m.result);
@@ -48,7 +50,7 @@ export function computeStats(matches: MatchStat[], myLeader: Map<string, string 
   }
 
   return {
-    games: matches.length,
+    games: played.length,
     diceKnown,
     diceWon,
     byMyLeader: [...mine.values()].sort(byGames),

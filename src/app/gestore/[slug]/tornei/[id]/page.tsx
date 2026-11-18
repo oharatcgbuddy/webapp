@@ -6,9 +6,10 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { isoToRomeLocal } from "@/lib/datetime";
 import { bandaiEventUrl } from "@/lib/bandai";
-import { canManageShop } from "@/lib/shop-access";
+import { canManageShop, isAdmin } from "@/lib/shop-access";
 import { TournamentForm } from "../../tournament-form";
 import { DeleteTournament } from "../../delete-tournament";
+import { ReleaseTournament } from "../../release-tournament";
 
 type TournamentRow = {
   id: string;
@@ -56,6 +57,19 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
   ]);
   if (!t) notFound();
 
+  // Torneo riscattato da un locale e ancora attivo: solo l'admin può restituirlo alla comunità.
+  let claimedByShop = false;
+  if (await isAdmin(supabase, auth.user?.id ?? "")) {
+    const { data: claim } = await supabase
+      .from("tournament_claims")
+      .select("id")
+      .eq("tournament_id", t.id)
+      .is("released_at", null)
+      .limit(1)
+      .maybeSingle();
+    claimedByShop = !!claim;
+  }
+
   return (
     <main className="space-y-4 p-4">
       <Link href={`/gestore/${slug}/tornei/${t.id}/risultati`} className="brutal-btn w-full bg-brand-green">
@@ -78,6 +92,7 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
           status: t.status,
         }}
       />
+      {claimedByShop && <ReleaseTournament slug={slug} id={t.id} />}
       <DeleteTournament slug={slug} id={t.id} />
     </main>
   );

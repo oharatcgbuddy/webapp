@@ -121,6 +121,21 @@ export function TournamentForm({
         </p>
       )}
 
+      {state.claim && (
+        <div role="alert" className="space-y-2 border-[3px] border-ink bg-brand-yellow p-3">
+          <p className="font-bold">
+            Questo evento è già stato segnalato dai giocatori come «{state.claim.title}».
+          </p>
+          <p className="text-sm">
+            Se è il tuo torneo puoi riscattarlo: diventa del tuo locale con i dati di questo modulo, e i risultati già
+            registrati dai giocatori restano collegati (con il tuo nome e il tuo logo nelle immagini).
+          </p>
+          <button type="submit" name="claim" value="1" disabled={pending} className="brutal-btn w-full bg-brand-green disabled:opacity-60">
+            Riscatta il torneo e salva
+          </button>
+        </div>
+      )}
+
       <button type="submit" disabled={pending} className="brutal-btn w-full bg-brand-green disabled:opacity-60">
         {pending ? "Salvo…" : tournamentId ? "Salva torneo" : "Crea torneo"}
       </button>

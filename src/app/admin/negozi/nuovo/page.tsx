@@ -34,7 +34,7 @@ async function NewShop() {
       <p className="text-sm">
         Il negozio nasce già approvato. Dopo averlo creato potrai assegnargli un gestore con la sua email Google.
       </p>
-      <ShopForm action={createShopAsAdmin} initial={EMPTY} submitLabel="Crea negozio" />
+      <ShopForm action={createShopAsAdmin} initial={EMPTY} submitLabel="Crea negozio" creating />
     </main>
   );
 }

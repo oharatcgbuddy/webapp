@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
@@ -57,6 +58,9 @@ async function EditTournament({ params }: { params: Promise<{ slug: string; id: 
 
   return (
     <main className="space-y-4 p-4">
+      <Link href={`/gestore/${slug}/tornei/${t.id}/risultati`} className="brutal-btn w-full bg-brand-green">
+        Risultati e immagini
+      </Link>
       <TournamentForm
         slug={slug}
         tournamentId={t.id}

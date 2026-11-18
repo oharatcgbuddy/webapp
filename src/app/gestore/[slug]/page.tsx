@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { canManageShop } from "@/lib/shop-access";
+import { LogoUpload } from "./logo-upload";
 import { ShopForm } from "./shop-form";
 import { updateShop } from "./actions";
 
@@ -20,6 +21,7 @@ type ShopRow = {
   social: Record<string, string> | null;
   lat: number | null;
   lng: number | null;
+  logo_url: string | null;
 };
 
 type TournamentRow = {
@@ -64,7 +66,7 @@ async function Manage({
 
   const { data: shop } = await supabase
     .from("shops")
-    .select("id, name, city, province, address, phone, website, description, social, lat, lng")
+    .select("id, name, city, province, address, phone, website, description, social, lat, lng, logo_url")
     .eq("slug", slug)
     .maybeSingle()
     .overrideTypes<ShopRow, { merge: false }>();
@@ -120,6 +122,8 @@ async function Manage({
           </ul>
         )}
       </section>
+
+      <LogoUpload slug={slug} shopId={shop.id} currentPath={shop.logo_url} />
 
       <section className="space-y-3">
         <h2 className="text-lg font-black uppercase">Pagina del negozio</h2>

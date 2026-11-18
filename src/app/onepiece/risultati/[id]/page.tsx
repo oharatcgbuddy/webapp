@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { notFound, redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { ImageActions } from "@/components/image-actions";
 import { DeleteButton } from "./delete-button";
 
 type Detail = {
@@ -177,6 +178,8 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
           <p className="whitespace-pre-line">{data.notes}</p>
         </section>
       )}
+
+      {isOwner && details?.leader_code && <ImageActions kind="risultato" id={data.id} title="Crea immagine del risultato" />}
 
       {isOwner && <DeleteButton id={data.id} />}
     </main>

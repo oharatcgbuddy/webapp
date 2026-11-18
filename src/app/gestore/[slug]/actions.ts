@@ -7,6 +7,7 @@ import { romeLocalToIso } from "@/lib/datetime";
 import { BANDAI_LINK_ERROR, BANDAI_SOURCE, parseBandaiEventLink } from "@/lib/bandai";
 import { parseShopFields } from "@/lib/shop-fields";
 import { canManageShop } from "@/lib/shop-access";
+import { shopLogoPathOk } from "@/lib/shop-logo";
 
 export type ActionState = { error?: string; ok?: boolean };
 
@@ -54,6 +55,25 @@ export async function updateShop(slug: string, _prev: ActionState, fd: FormData)
 
   revalidatePath(`/gestore/${slug}`);
   revalidatePath(`/negozi/${slug}`);
+  return { ok: true };
+}
+
+// Salva il percorso del logo appena caricato nel bucket "shop-logos" e toglie quello vecchio.
+export async function setShopLogo(slug: string, path: string): Promise<ActionState> {
+  const ctx = await managedShop(slug);
+  if (!ctx) return NO_ACCESS;
+  if (!shopLogoPathOk(path, ctx.shopId)) return { error: "Logo non valido." };
+
+  const { data: before } = await ctx.supabase.from("shops").select("logo_url").eq("id", ctx.shopId).maybeSingle();
+  const { data, error } = await ctx.supabase.from("shops").update({ logo_url: path }).eq("id", ctx.shopId).select("id");
+  if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare il logo." };
+
+  const old = before?.logo_url as string | null | undefined;
+  if (old && old !== path && shopLogoPathOk(old, ctx.shopId)) {
+    await ctx.supabase.storage.from("shop-logos").remove([old]);
+  }
+
+  revalidatePath(`/gestore/${slug}`);
   return { ok: true };
 }
 

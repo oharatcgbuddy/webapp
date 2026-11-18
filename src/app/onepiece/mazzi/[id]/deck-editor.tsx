@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import { CARD_RATIO, cardImageUrl } from "@/lib/card-images";
+import { ImageActions } from "@/components/image-actions";
 import {
   DECK_SIZE,
   MAX_COPIES,
@@ -384,6 +385,9 @@ export function DeckEditor({
           Importa
         </button>
       </section>
+
+      <ImageActions kind="mazzo" id={deckId} title="Crea immagine del mazzo" />
+      <p className="-mt-2 text-xs">L&apos;immagine usa il mazzo salvato: salva prima le modifiche.</p>
 
       <form
         action={deleteDeck}

@@ -10,7 +10,8 @@ import { canManageShop, isAdmin } from "@/lib/shop-access";
 import { shopLogoPathOk } from "@/lib/shop-logo";
 
 // `claim`: l'evento Bandai è già un torneo della comunità e il gestore deve confermare il riscatto.
-export type ActionState = { error?: string; ok?: boolean; claim?: { title: string } };
+// `slug`: indirizzo del negozio appena creato (il modulo di creazione lo usa per caricare il logo e andare alla sua pagina).
+export type ActionState = { error?: string; ok?: boolean; claim?: { title: string }; slug?: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9-]{1,80}$/;

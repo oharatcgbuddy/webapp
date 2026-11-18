@@ -1,11 +1,10 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseShopFields } from "@/lib/shop-fields";
 
-export type ActionState = { error?: string; ok?: boolean; message?: string };
+export type ActionState = { error?: string; ok?: boolean; message?: string; slug?: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const SLUG = /^[a-z0-9-]{1,80}$/;
@@ -37,7 +36,9 @@ export async function createShopAsAdmin(_prev: ActionState, fd: FormData): Promi
 
   revalidatePath("/admin/negozi");
   revalidatePath("/mappa");
-  redirect(`/admin/negozi/${slug}`);
+  // Niente redirect qui: il modulo carica prima l'eventuale logo (serve l'id del negozio appena creato)
+  // e poi porta alla pagina del negozio.
+  return { ok: true, slug };
 }
 
 export async function addOwner(slug: string, _prev: ActionState, fd: FormData): Promise<ActionState> {

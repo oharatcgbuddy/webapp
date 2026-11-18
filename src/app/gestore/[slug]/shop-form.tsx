@@ -1,9 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ActionState } from "./actions";
 import { AddressSearch } from "./address-search";
 import { LocationPicker } from "./location-picker";
+import { uploadLogoBySlug } from "./logo-utils";
 
 export type ShopValues = {
   name: string;
@@ -30,13 +32,32 @@ export function ShopForm({
   initial,
   submitLabel = "Salva pagina negozio",
   savedMessage = "Modifiche salvate.",
+  creating = false,
 }: {
   action: (prev: ActionState, fd: FormData) => Promise<ActionState>;
   initial: ShopValues;
   submitLabel?: string;
   savedMessage?: string;
+  // Creazione di un negozio (admin): il modulo permette di scegliere anche il logo, che si carica subito dopo
+  // la creazione (serve l'id del negozio nuovo), e poi porta alla pagina del negozio.
+  creating?: boolean;
 }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(saveAction, {});
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionState, FormData>(async (prev, fd) => {
+    if (!creating) return saveAction(prev, fd);
+    // Il file non va al server con il resto del modulo (limite di dimensione): si carica dal browser.
+    const logo = fd.get("logo");
+    fd.delete("logo");
+    const res = await saveAction(prev, fd);
+    if (res.ok && res.slug) {
+      if (logo instanceof File && logo.size > 0) {
+        const err = await uploadLogoBySlug(res.slug, logo);
+        if (err) window.alert(`Negozio creato, ma il logo non è stato caricato: ${err} Puoi caricarlo dalla pagina del negozio.`);
+      }
+      router.push(`/admin/negozi/${res.slug}`);
+    }
+    return res;
+  }, {});
   const [address, setAddress] = useState(initial.address);
   const [city, setCity] = useState(initial.city);
   const [province, setProvince] = useState(initial.province);
@@ -108,6 +129,21 @@ export function ShopForm({
       </label>
 
       <LocationPicker initialLat={initial.lat} initialLng={initial.lng} target={target} />
+
+      {creating && (
+        <label className={label}>
+          Logo del negozio (facoltativo)
+          <input
+            name="logo"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="mt-1 block w-full border-[3px] border-ink bg-white p-2 text-sm normal-case"
+          />
+          <span className="mt-1 block text-xs font-normal normal-case">
+            PNG, JPG o WebP: lo ridimensiono io. Compare nelle immagini dei risultati.
+          </span>
+        </label>
+      )}
 
       {state.error && (
         <p role="alert" className="border-[3px] border-ink bg-brand-red p-3 font-bold">

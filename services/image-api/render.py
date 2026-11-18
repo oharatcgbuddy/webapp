@@ -22,6 +22,7 @@ W = 1080  # larghezza in "pixel di progetto"
 SS = 2  # supercampionamento
 PAD = 56
 GAP = 12
+TYPE_ORDER = {"Character": 0, "Event": 1, "Stage": 2}  # personaggi, poi eventi (spell), poi stage
 TARGET_H = {"story": 1920, "post": 1350}
 
 # Stile del sito (neo-brutalismo): carta, inchiostro, bordi spessi e ombre dure.
@@ -73,7 +74,7 @@ class Matchup(BaseModel):
     opponent_colors: list[str] = Field(default_factory=list, max_length=4)
     opponent_image_path: str | None = Field(default=None, max_length=100)
     dice_won: bool | None = None
-    result: Literal["win", "loss", "draw"]
+    result: Literal["win", "loss", "draw", "bye"]  # bye = turno di riposo: conta come vinto, senza dado
 
 
 class Shop(BaseModel):
@@ -235,7 +236,7 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     cols = 8 if compact else 6
     card_w = (W - 2 * PAD - (cols - 1) * GAP) // cols
     card_h = round(card_w * 1.4)
-    cards = sorted(req.cards, key=lambda c: (c.cost if c.cost is not None else 99, c.code))
+    cards = sorted(req.cards, key=lambda c: (TYPE_ORDER.get(c.type or "", 9), c.cost if c.cost is not None else 99, c.code))
     rows = math.ceil(len(cards) / cols) if cards else 0
     st = stats(req.cards)
 
@@ -351,18 +352,7 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
         y += gap + 4
         brutal(d, (PAD, y, W - PAD, y + match_h), fill=WHITE)
         text(d, (PAD + 28, y + 24), "Scontri", font(26, 700), anchor="la")
-        # legenda del dado
-        lx = W - PAD - 28
-        text(d, (lx, y + 38), "perso", font(20, 600), fill=MUTED, anchor="rm")
-        lx -= text_w(d, "perso", font(20, 600)) + 10 + 26
-        die(d, lx, y + 25, 26, RED)
-        lx -= 24
-        text(d, (lx, y + 38), "vinto", font(20, 600), fill=MUTED, anchor="rm")
-        lx -= text_w(d, "vinto", font(20, 600)) + 10 + 26
-        die(d, lx, y + 25, 26, GREEN)
-        text(d, (lx - 10, y + 38), "Dado", font(20, 600), fill=MUTED, anchor="rm")
-
-        verdict = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "draw": ("PARI", YELLOW)}
+        verdict = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "draw": ("PARI", YELLOW), "bye": ("BYE", PINK)}
         colw = (W - 2 * PAD - 56 - 24) / 2
         for i, m in enumerate(req.matchups):
             if compact:
@@ -372,11 +362,12 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                 if ccol == 0 and crow:
                     d.line([(S(PAD + 28), S(ry - 4)), (S(W - PAD - 28), S(ry - 4))], fill=INK, width=S(1.5))
                 text(d, (cx0, ry + 24), f"R{m.round}" if m.round else "", font(20, 700), fill=MUTED, anchor="lm")
-                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code else None
-                frame_image(canvas, d, thumb, (cx0 + 40, ry + 2, cx0 + 40 + 30, ry + 2 + 42), "", bw=2.5)
-                name = m.opponent_name or m.opponent_code or "Avversario n/d"
+                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code and m.result != "bye" else None
+                if m.result != "bye":
+                    frame_image(canvas, d, thumb, (cx0 + 40, ry + 2, cx0 + 40 + 30, ry + 2 + 42), "", bw=2.5)
+                name = "Nessun avversario" if m.result == "bye" else (m.opponent_name or m.opponent_code or "Avversario n/d")
                 text(d, (cx0 + 82, ry + 24), fit(d, name, font(21, 700), colw - 82 - 36 - 12 - 96 - 8), font(21, 700), anchor="lm")
-                if m.dice_won is not None:
+                if m.dice_won is not None and m.result != "bye":
                     die(d, cx0 + colw - 96 - 12 - 32, ry + 7, 32, GREEN if m.dice_won else RED)
                 label, fill = verdict[m.result]
                 pill(d, cx0 + colw - 96, ry + 4, label, font(20, 700), fill, INK, pad_x=10, h=38, min_w=96)
@@ -385,14 +376,15 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                 if i:
                     d.line([(S(PAD + 28), S(ry - 4)), (S(W - PAD - 28), S(ry - 4))], fill=INK, width=S(1.5))
                 text(d, (PAD + 28, ry + 26), f"R{m.round}" if m.round else "", font(22, 700), fill=MUTED, anchor="lm")
-                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code else None
-                frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
+                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code and m.result != "bye" else None
+                if m.result != "bye":
+                    frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
                 nx = PAD + 140
-                name = m.opponent_name or m.opponent_code or "Avversario n/d"
+                name = "Nessun avversario" if m.result == "bye" else (m.opponent_name or m.opponent_code or "Avversario n/d")
                 shown = fit(d, name, font(26, 700), 380)
                 text(d, (nx, ry + 26), shown, font(26, 700), anchor="lm")
                 color_dots(d, nx + text_w(d, shown, font(26, 700)) + 14, ry + 16, m.opponent_colors, r=9)
-                if m.dice_won is not None:
+                if m.dice_won is not None and m.result != "bye":
                     die(d, W - PAD - 28 - 118 - 24 - 40, ry + 5, 40, GREEN if m.dice_won else RED)
                 label, fill = verdict[m.result]
                 pill(d, W - PAD - 28 - 118, ry + 4, label, font(22, 700), fill, INK, pad_x=20, h=44, min_w=118)

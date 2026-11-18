@@ -74,6 +74,7 @@ matchups = [
          ("OP13-002", True, "win"), ("OP01-001", False, "win"), ("OP09-001", True, "win")]
     )
 ]
+matchups[2] = {"round": 3, "result": "bye"}  # prova del BYE: niente avversario, niente dado
 result = RenderRequest.model_validate(
     {"kind": "result", "title": "Marco Rossi", "leader": LEADER, "cards": cards, "result_label": "WINNER", "result_winner": True,
      "placement_text": "1° su 32", "tournament": "Locals di giovedì", "date": "18 nov 2026", "shop": {"name": "Magic Lair Torino"}, "matchups": matchups}

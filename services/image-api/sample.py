@@ -64,6 +64,18 @@ for code in OPP:
     images[f"opp:{code}"] = img(f"onepiece/leaders/{code}", thumb=True)
 logo = (HERE / "assets" / "logo.png").read_bytes()
 
+# Logo di prova del negozio (un quadrato con un cerchio e una scritta): serve solo a vedere l'impaginazione.
+def fake_shop_logo() -> bytes:
+    import io
+    from PIL import Image, ImageDraw
+    im = Image.new("RGBA", (400, 400), (0, 0, 0, 0))
+    dr = ImageDraw.Draw(im)
+    dr.ellipse((10, 10, 390, 390), fill=(30, 40, 90, 255))
+    dr.polygon([(200, 70), (330, 280), (70, 280)], fill=(255, 210, 63, 255))
+    out = io.BytesIO(); im.save(out, "PNG"); return out.getvalue()
+
+SHOP_LOGO = fake_shop_logo()
+
 deck = RenderRequest.model_validate({"kind": "deck", "title": "Nami Control", "leader": LEADER, "cards": cards})
 (OUT / "deck.png").write_bytes(render(deck, images, logo, None))
 
@@ -79,8 +91,14 @@ result = RenderRequest.model_validate(
     {"kind": "result", "title": "Marco Rossi", "leader": LEADER, "cards": cards, "result_label": "WINNER", "result_winner": True,
      "placement_text": "1° su 32", "tournament": "Locals di giovedì", "date": "18 nov 2026", "shop": {"name": "Magic Lair Torino"}, "matchups": matchups}
 )
-(OUT / "result.png").write_bytes(render(result, images, logo, None))
+(OUT / "result.png").write_bytes(render(result, images, logo, SHOP_LOGO))
 for fmt in ("story", "post"):
     r = result.model_copy(update={"format": fmt})
-    (OUT / f"result_{fmt}.png").write_bytes(render(r, images, logo, None))
+    (OUT / f"result_{fmt}.png").write_bytes(render(r, images, logo, SHOP_LOGO))
+# Casi limite: testi lunghi, nessun logo del locale, solo mazzo.
+long = RenderRequest.model_validate({**result.model_dump(), "format": "post", "title": "Alessandro Bartolomeo-Giuseppe Rossi", "tournament": "Campionato regionale invernale One Piece del Nord Italia", "shop": {"name": "Magic Lair Torino Centro Storico e Dintorni"}, "result_label": "5-2", "result_winner": False, "placement_text": "12° su 64"})
+(OUT / "stress_post.png").write_bytes(render(long, images, logo, SHOP_LOGO))
+nolog = result.model_copy(update={"format": "story"})
+(OUT / "no_logo_story.png").write_bytes(render(nolog, images, logo, None))
+(OUT / "deck_post.png").write_bytes(render(deck.model_copy(update={"format": "post"}), images, logo, None))
 print("scritti:", OUT / "deck.png", OUT / "result.png", "| carte nel mazzo:", total)

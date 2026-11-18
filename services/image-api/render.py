@@ -169,9 +169,9 @@ def color_dots(draw, x, y, colors: list[str], r: float = 9) -> float:
     return x + len(colors[:4]) * (r * 2 + 6)
 
 
-def pill(draw, x, y, label: str, f, fill, fg=INK, pad_x=18, h=44, min_w=0) -> float:
+def pill(draw, x, y, label: str, f, fill, fg=INK, pad_x=18, h=44, min_w=0, bw=3, sh=3) -> float:
     w = max(min_w, text_w(draw, label, f) + pad_x * 2)
-    brutal(draw, (x, y, x + w, y + h), fill=fill, bw=3, sh=3)
+    brutal(draw, (x, y, x + w, y + h), fill=fill, bw=bw, sh=sh)
     text(draw, (x + w / 2, y + h / 2), label, f, fill=fg, anchor="mm")
     return x + w
 
@@ -233,40 +233,77 @@ def die(d, x, y, size, fill):
 
 def draw_all(req, images, app_logo, shop_logo, total_h=None):
     compact = req.format == "post"
-    cols = 8 if compact else 6
-    card_w = (W - 2 * PAD - (cols - 1) * GAP) // cols
-    card_h = round(card_w * 1.4)
+    n_unique = len(req.cards)
     cards = sorted(req.cards, key=lambda c: (TYPE_ORDER.get(c.type or "", 9), c.cost if c.cost is not None else 99, c.code))
-    rows = math.ceil(len(cards) / cols) if cards else 0
     st = stats(req.cards)
 
     lw, lh = (140, 196) if compact else (168, 235)
-    bar_h = 96
-    top_gap = 36 if compact else 52
-    head_h = bar_h + top_gap + lh + (30 if compact else 44)
-    grid_h = rows * (card_h + GAP) if rows else 0
+    bar_h = 124  # il logo del locale (96) è il più grande, quello di Ohara (64) è più piccolo ma ben visibile
+    top_gap = 34 if compact else 48
+    content_h = 222 if compact else 252  # titolo, leader, risultato in evidenza, dettagli del torneo
+    head_h = bar_h + top_gap + max(lh, content_h) + (28 if compact else 40)
     stats_h = 0 if compact else (230 if cards else 0)
     row_h = 56 if compact else 62
     m_rows = math.ceil(len(req.matchups) / 2) if compact else len(req.matchups)
     match_h = (74 + m_rows * row_h + 20) if req.matchups else 0
-    foot_h = 96 if compact else 110
+    foot_h = 64
     gap = 24 if compact else 30
-    natural = head_h + grid_h + (gap + stats_h if stats_h else 0) + (gap + 4 + match_h if match_h else 0) + 36 + foot_h
+    fixed = head_h + (gap + stats_h if stats_h else 0) + (gap + 4 + match_h if match_h else 0) + 36 + foot_h
+
+    def dims(c):
+        w = (W - 2 * PAD - (c - 1) * GAP) // c
+        h = round(w * 1.4)
+        r = math.ceil(n_unique / c) if n_unique else 0
+        return w, h, r, (r * (h + GAP) if r else 0)
+
+    # Post: tra 5 e 9 colonne, quelle che fanno stare tutto nel formato; tra queste meno spazi vuoti nell'ultima
+    # riga e, a parità, carte più grandi. Storia e intera: 6 colonne.
+    if compact and n_unique:
+        fits = [c for c in (5, 6, 7, 8, 9) if fixed + dims(c)[3] <= TARGET_H["post"]]
+        cols = min(fits or [9], key=lambda c: (-n_unique % c, c))
+    else:
+        cols = 6
+    card_w, card_h, rows, grid_h = dims(cols)
+    natural = fixed + grid_h
     H = max(natural, total_h or 0)
     dy = (H - natural) / 2  # spazio in più: il contenuto resta centrato tra barra e piè di pagina
 
     canvas = Image.new("RGBA", (S(W), S(H)), PAPER + (255,))
     d = ImageDraw.Draw(canvas)
 
-    # --- barra in alto (come l'intestazione del sito) ---
+    # --- barra in alto: il locale in primo piano; Ohara compare una sola volta, più piccolo ---
     d.rectangle((0, 0, S(W), S(bar_h)), fill=YELLOW)
     d.rectangle((0, S(bar_h - BORDER), S(W), S(bar_h)), fill=INK)
-    logo = load_image(app_logo)
-    if logo is not None:
-        paste_rounded(canvas, logo, (PAD, 14, PAD + 62, 14 + 62), 0, "", cover=False)
-    text(d, (PAD + 80, 44), "Ohara TCG Buddy", font(34, 700), anchor="lm")
-    brutal(d, (W - PAD - 270, 22, W - PAD, 66), fill=WHITE, bw=3, sh=3)
-    text(d, (W - PAD - 135, 44), "ONE PIECE · TCG", font(22, 700), anchor="mm")
+    app = load_image(app_logo)
+    shop_img = load_image(shop_logo) if req.shop else None
+    cy = (bar_h - BORDER) / 2
+    big, small = 96, 64
+
+    def logo_box(img, x0, size):
+        # logo "contenuto" su fondo bianco, con bordo come il resto
+        d.rectangle((S(x0), S(cy - size / 2), S(x0 + size), S(cy + size / 2)), fill=WHITE)
+        paste_rounded(canvas, img, (x0 + 6, cy - size / 2 + 6, x0 + size - 6, cy + size / 2 - 6), 0, "", cover=False)
+        d.rectangle((S(x0), S(cy - size / 2), S(x0 + size), S(cy + size / 2)), outline=INK, width=S(3))
+
+    if req.shop:
+        left = PAD
+        if shop_img is not None:
+            logo_box(shop_img, left, big)
+            left += big + 22
+        brand_f = font(24, 700)
+        brand_w = text_w(d, "Ohara TCG Buddy", brand_f)
+        right = W - PAD
+        text(d, (right, cy), "Ohara TCG Buddy", brand_f, anchor="rm")
+        if app is not None:
+            paste_rounded(canvas, app, (right - brand_w - 12 - small, cy - small / 2, right - brand_w - 12, cy + small / 2), 0, "", cover=False)
+        name_f = font(36, 700)
+        text(d, (left, cy), fit(d, req.shop.name, name_f, right - brand_w - 12 - small - left - 24), name_f, anchor="lm")
+    else:
+        left = PAD
+        if app is not None:
+            paste_rounded(canvas, app, (left, cy - big / 2, left + big, cy + big / 2), 0, "", cover=False)
+            left += big + 20
+        text(d, (left, cy), "Ohara TCG Buddy", font(40, 700), anchor="lm")
 
     # --- intestazione ---
     ly = bar_h + top_gap + dy
@@ -280,18 +317,24 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     cx = color_dots(d, x, ly + off, req.leader.colors, r=12)
     sub = f"{req.leader.code} · {req.leader.name}"
     text(d, (cx + 8, ly + off + 12), fit(d, sub, font(28, 700), W - cx - PAD - 20), font(28, 700), anchor="lm")
-    text(d, (x, ly + off + 44), f"{st['total']} carte", font(26, 600), fill=MUTED)
 
-    bx = x
-    by = ly + lh - 44
+    # Il risultato (WINNER, 6-1…) è l'elemento più importante dopo il nome: grande, con ombra marcata.
+    ry = ly + (106 if compact else 124)
+    big_h = 76 if compact else 84
+    info_y = ry
     if req.kind == "result" and req.result_label:
-        bx = pill(d, bx, by, req.result_label, font(28, 700), YELLOW if req.result_winner else BLUE) + 16
+        fsz = 50 if compact else 56
+        cur = pill(d, x, ry, req.result_label, font(fsz, 700), YELLOW if req.result_winner else BLUE, pad_x=30, h=big_h, bw=4, sh=6) + 24
         if req.placement_text:
-            bx = pill(d, bx, by, req.placement_text, font(24, 700), WHITE) + 16
-    for label in (req.tournament, req.date):
-        if label and bx < W - PAD - 150:
-            label = fit(d, label, font(24, 600), W - PAD - bx - 40)
-            bx = pill(d, bx, by, label, font(24, 600), WHITE) + 16
+            ph = 56
+            pill(d, cur, ry + (big_h - ph) / 2, req.placement_text, font(30, 700), WHITE, pad_x=22, h=ph)
+        info_y = ry + big_h + 14
+    # Torneo e data: una riga di testo semplice, secondaria.
+    if req.tournament or req.date:
+        f = font(24, 600)
+        tail = (" · " if req.tournament and req.date else "") + (req.date or "")
+        head = fit(d, req.tournament, f, W - x - PAD - text_w(d, tail, f)) if req.tournament else ""
+        text(d, (x, info_y + 14), head + tail, f, fill=MUTED, anchor="lm")  # si accorcia il torneo, mai la data
 
     # --- griglia del mazzo ---
     gy = head_h + dy
@@ -390,22 +433,13 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                 pill(d, W - PAD - 28 - 118, ry + 4, label, font(22, 700), fill, INK, pad_x=20, h=44, min_w=118)
         y += match_h
 
-    # --- piè di pagina ---
+    # --- piè di pagina: sottile, senza ripetere il nome ---
     fy = H - foot_h
     d.rectangle((0, S(fy), S(W), S(H)), fill=YELLOW)
     d.rectangle((0, S(fy), S(W), S(fy + BORDER)), fill=INK)
     mid = fy + foot_h / 2 + 2
-    text(d, (PAD, mid), "Ohara TCG Buddy", font(28, 700), anchor="lm")
-    if req.shop:
-        sl = load_image(shop_logo)
-        right = W - PAD
-        name = fit(d, req.shop.name, font(28, 700), 420)
-        if sl is not None:
-            frame_image(canvas, d, sl, (right - 64, mid - 32, right, mid + 32), "", bw=3)
-            right -= 84
-        text(d, (right, mid), name, font(28, 700), anchor="rm")
-    else:
-        text(d, (W - PAD, mid), "ohara-tcg-buddy.vercel.app", font(24, 600), anchor="rm")
+    text(d, (PAD, mid), "ONE PIECE CARD GAME", font(22, 700), anchor="lm")
+    text(d, (W - PAD, mid), "ohara-tcg-buddy.vercel.app", font(22, 600), anchor="rm")
     return canvas, H, natural
 
 

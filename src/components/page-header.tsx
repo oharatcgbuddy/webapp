@@ -9,7 +9,7 @@ export function PageHeader({ title, subtitle }: { title: string; subtitle?: stri
         {subtitle && <p className="mt-1 text-sm font-medium">{subtitle}</p>}
       </div>
       <Link href="/?scegli=1" aria-label="Ohara TCG Buddy, scegli il gioco" className="shrink-0">
-        <Image src="/logo.png" alt="" width={64} height={64} priority className="h-16 w-16" />
+        <Image unoptimized src="/logo.png" alt="" width={64} height={64} priority className="h-16 w-16" />
       </Link>
     </header>
   );

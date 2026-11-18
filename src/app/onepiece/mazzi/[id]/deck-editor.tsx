@@ -23,6 +23,16 @@ type Msg = { ok: boolean; text: string } | null;
 const field = "block w-full border-[3px] border-ink bg-white px-3 py-2";
 const VISIBLE = 30;
 const TYPES = ["Character", "Event", "Stage"] as const;
+
+// Ordine delle carte: personaggi, eventi, stage; dentro ogni gruppo per costo e poi per codice.
+const TYPE_RANK: Record<string, number> = { Character: 0, Event: 1, Stage: 2 };
+const byTypeCostCode = (
+  a: { type: string | null; cost: number | null; card_code: string },
+  b: { type: string | null; cost: number | null; card_code: string },
+) =>
+  (TYPE_RANK[a.type ?? ""] ?? 9) - (TYPE_RANK[b.type ?? ""] ?? 9) ||
+  (a.cost ?? 99) - (b.cost ?? 99) ||
+  a.card_code.localeCompare(b.card_code);
 const TYPE_IT: Record<string, string> = { Character: "Personaggio", Event: "Evento", Stage: "Stage" };
 const COLOR_IT: Record<string, string> = { Red: "Rosso", Green: "Verde", Blue: "Blu", Purple: "Viola", Black: "Nero", Yellow: "Giallo" };
 const COSTS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
@@ -115,7 +125,7 @@ export function DeckEditor({
           if (!tokens.every((t) => hay.includes(t))) return false;
         }
         return true;
-      }),
+      }).sort(byTypeCostCode),
     // `tokens` deriva da `q`: basta dipendere da q.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [catalog, setFilter, colorSel, typeSel, costSel, q],
@@ -179,11 +189,12 @@ export function DeckEditor({
     setMsg({ ok: true, text: "Importato: controlla e salva." });
   };
 
-  const deckList = entriesToCards(entries).sort((a, b) => {
-    const ca = byCode.get(a.card_code)?.cost ?? 99;
-    const cb = byCode.get(b.card_code)?.cost ?? 99;
-    return ca - cb || a.card_code.localeCompare(b.card_code);
-  });
+  const deckList = entriesToCards(entries).sort((a, b) =>
+    byTypeCostCode(
+      { type: byCode.get(a.card_code)?.type ?? null, cost: byCode.get(a.card_code)?.cost ?? null, card_code: a.card_code },
+      { type: byCode.get(b.card_code)?.type ?? null, cost: byCode.get(b.card_code)?.cost ?? null, card_code: b.card_code },
+    ),
+  );
   const byType: Record<string, number> = {};
   for (const [code, qty] of Object.entries(entries)) {
     const t = byCode.get(code)?.type ?? "Altro";

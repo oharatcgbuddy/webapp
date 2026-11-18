@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { AliasForm } from "./alias-form";
 
 async function signOut() {
   "use server";
@@ -22,6 +23,12 @@ async function Account() {
     .select("is_admin")
     .eq("id", user?.id ?? "")
     .maybeSingle();
+  // Query separata: finché la colonna non esiste, non deve rompere il resto della pagina.
+  const { data: aliasRow } = await supabase
+    .from("profiles")
+    .select("alias")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
   const { count: managed } = await supabase
     .from("shop_members")
     .select("shop_id", { count: "exact", head: true })
@@ -33,6 +40,7 @@ async function Account() {
         <p className="text-sm font-bold uppercase">Account Google</p>
         <p className="break-all">{user?.email ?? "—"}</p>
       </div>
+      <AliasForm alias={(aliasRow as { alias: string | null } | null)?.alias ?? null} />
       {(managed ?? 0) > 0 && (
         <Link href="/gestore" className="brutal-btn w-full bg-brand-green">
           Area gestore

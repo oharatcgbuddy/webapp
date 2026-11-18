@@ -182,6 +182,18 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
     cards = await cardsFor(op, (rows ?? []).map((r) => ({ code: r.card_code, qty: r.qty })));
   }
 
+  // Torneo libero: il locale scelto a mano (query a parte, così non dipende dall'esistenza della colonna).
+  let shop = shopOf(p.tournaments?.shops);
+  if (!shop) {
+    const { data: s } = await supabase
+      .from("participations")
+      .select("shop:shops(name, logo_url)")
+      .eq("id", id)
+      .maybeSingle()
+      .overrideTypes<{ shop: ShopRow | null }, { merge: false }>();
+    shop = shopOf(s?.shop);
+  }
+
   const who = profile as { alias: string | null; display_name: string | null } | null;
   return {
     ok: true,
@@ -194,7 +206,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
       ...resultLabels(p.wins, p.losses, p.placement, p.players_count),
       tournament: p.tournaments?.title ?? p.standalone_label,
       date: fmtDate(p.tournaments?.starts_at ?? p.played_on),
-      shop: shopOf(p.tournaments?.shops),
+      shop,
       matchups: toMatchups(matches ?? [], leaders),
     },
   };

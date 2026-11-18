@@ -82,6 +82,13 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
     const { data: t } = await supabase.from("tournaments").select("id").eq("id", tournamentId).maybeSingle();
     if (!t) return { error: "Torneo non trovato." };
   }
+  // Locale facoltativo per i tornei liberi (nome e logo nelle immagini): deve essere un locale visibile.
+  const shopChoice = tournamentId ? "" : text(fd, "shop_id", 40);
+  if (shopChoice) {
+    if (!UUID.test(shopChoice)) return { error: "Locale non valido." };
+    const { data: shop } = await supabase.from("shops").select("id").eq("id", shopChoice).maybeSingle();
+    if (!shop) return { error: "Locale non trovato." };
+  }
   if (await openTrackId(supabase, user.id)) return { error: "Hai già un track in corso." };
 
   const { data: tcg } = await supabase.from("tcgs").select("id").eq("slug", "onepiece").single();
@@ -145,6 +152,7 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
       tcg_id: tcg.id,
       played_on: new Date().toISOString().slice(0, 10),
       standalone_label: linkedTournamentId ? null : label,
+      ...(shopChoice ? { shop_id: shopChoice } : {}),
       closed_at: null,
     })
     .select("id")

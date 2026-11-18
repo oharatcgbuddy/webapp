@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { ImageActions } from "@/components/image-actions";
 import { ChangeDeck, type DeckOption } from "../change-deck";
+import { ChangeShop, type ShopOption } from "../change-shop";
 import { DeleteButton } from "./delete-button";
 
 type Detail = {
@@ -116,6 +117,18 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   const totalCards = (deckCards ?? []).reduce((sum, c) => sum + c.qty, 0);
   const diceKnown = matches.filter((m) => m.won_dice !== null);
 
+  // Torneo libero: il proprietario può scegliere un locale (nome e logo nelle immagini).
+  let shopOptions: ShopOption[] = [];
+  let currentShopId: string | null = null;
+  if (isOwner && !data.tournaments) {
+    const [{ data: sr }, { data: sl }] = await Promise.all([
+      supabase.from("participations").select("shop_id").eq("id", id).maybeSingle(), // query a parte: non rompe la pagina
+      supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
+    ]);
+    currentShopId = (sr as { shop_id: string | null } | null)?.shop_id ?? null;
+    shopOptions = (sl ?? []).map((s) => ({ id: s.id, label: s.city ? `${s.name} (${s.city})` : s.name }));
+  }
+
   return (
     <main className="space-y-4 p-4">
       <section className="brutal-card space-y-1 p-4">
@@ -189,6 +202,10 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
       )}
 
       {isOwner && <ChangeDeck participationId={data.id} currentDeckId={details?.deck_id ?? null} decks={myDecks ?? []} />}
+
+      {isOwner && !data.tournaments && (
+        <ChangeShop participationId={data.id} currentShopId={currentShopId} shops={shopOptions} />
+      )}
 
       {isOwner && details?.leader_code && <ImageActions kind="risultato" id={data.id} title="Crea immagine del risultato" />}
 

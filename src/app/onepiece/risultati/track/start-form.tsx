@@ -6,6 +6,7 @@ import { LeaderPicker, type LeaderOpt } from "./leader-picker";
 
 type TournamentOpt = { id: string; label: string };
 type DeckOpt = { id: string; name: string };
+type ShopOpt = { id: string; label: string };
 
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
 const label = "block text-sm font-bold uppercase";
@@ -14,10 +15,12 @@ export function StartForm({
   tournaments,
   leaders,
   decks,
+  shops,
 }: {
   tournaments: TournamentOpt[];
   leaders: LeaderOpt[];
   decks: DeckOpt[];
+  shops: ShopOpt[];
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(startTrack, {});
   const [tournamentId, setTournamentId] = useState("");
@@ -62,6 +65,20 @@ export function StartForm({
               Nome del torneo
               <input name="standalone_label" maxLength={80} required className={field} placeholder="es. Locals da Mario" />
             </label>
+            {shops.length > 0 && (
+              <label className={label}>
+                Locale (facoltativo)
+                <select name="shop_id" defaultValue="" className={field}>
+                  <option value="">Nessun locale</option>
+                  {shops.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1 block text-xs font-normal normal-case">Nome e logo del locale compaiono nelle immagini.</span>
+              </label>
+            )}
             <label className={label}>
               Link evento BANDAI TCG+ (facoltativo)
               <input

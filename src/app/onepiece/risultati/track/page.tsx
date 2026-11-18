@@ -70,7 +70,7 @@ async function TrackLoader() {
     const from = new Date(nowDate.getTime() - 24 * 3600 * 1000).toISOString();
     const to = new Date(nowDate.getTime() + 12 * 3600 * 1000).toISOString();
 
-    const [{ data: tournaments }, { data: decks }] = await Promise.all([
+    const [{ data: tournaments }, { data: decks }, { data: shops }] = await Promise.all([
       supabase
         .from("tournaments")
         .select("id, title, starts_at")
@@ -80,6 +80,7 @@ async function TrackLoader() {
         .order("starts_at", { ascending: true })
         .limit(50),
       op.from("decks").select("id, name").eq("owner_id", uid).order("created_at", { ascending: false }).limit(50),
+      supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
     ]);
 
     return (
@@ -90,6 +91,7 @@ async function TrackLoader() {
         }))}
         leaders={allLeaders}
         decks={decks ?? []}
+        shops={(shops ?? []).map((s) => ({ id: s.id, label: s.city ? `${s.name} (${s.city})` : s.name }))}
       />
     );
   }

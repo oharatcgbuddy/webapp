@@ -31,6 +31,25 @@ export async function changeDeck(participationId: string, formData: FormData): P
   revalidatePath("/onepiece/risultati/track");
 }
 
+// Imposta il locale di un proprio torneo libero (vuoto = nessuno). Il locale deve essere visibile all'utente.
+export async function changeShop(participationId: string, formData: FormData): Promise<void> {
+  const raw = formData.get("shop_id");
+  const shopId = typeof raw === "string" && raw !== "" ? raw : null;
+  if (!UUID.test(participationId) || (shopId !== null && !UUID.test(shopId))) return;
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return;
+
+  if (shopId) {
+    const { data: shop } = await supabase.from("shops").select("id").eq("id", shopId).maybeSingle();
+    if (!shop) return;
+  }
+  await supabase.from("participations").update({ shop_id: shopId }).eq("id", participationId).eq("user_id", auth.user.id);
+
+  revalidatePath(`/onepiece/risultati/${participationId}`);
+}
+
 // Elimina un proprio risultato. Round e dettagli vanno in cascata; i mazzi restano.
 export async function deleteResult(id: string): Promise<void> {
   if (!UUID.test(id)) return;

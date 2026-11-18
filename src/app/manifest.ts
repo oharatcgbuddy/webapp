@@ -9,7 +9,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/",
     display: "standalone",
     orientation: "portrait",
-    background_color: "#FFF4D6",
+    // Android mostra questo colore con l'icona mentre l'app si avvia: lo stesso giallo della schermata di caricamento.
+    background_color: "#FFD23F",
     theme_color: "#FFD23F",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

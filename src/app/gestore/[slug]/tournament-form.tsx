@@ -62,7 +62,14 @@ export function TournamentForm({
       </label>
       <label className={label}>
         Data e ora (ora italiana)
-        <input name="starts_at" type="datetime-local" required defaultValue={initial.starts_at} className={field} />
+        {/* Su iOS il campo ha una larghezza propria: senza appearance-none e min-w-0 esce dal riquadro. */}
+        <input
+          name="starts_at"
+          type="datetime-local"
+          required
+          defaultValue={initial.starts_at}
+          className={`${field} min-h-12 min-w-0 max-w-full appearance-none`}
+        />
       </label>
       <div className="grid grid-cols-2 gap-2">
         <label className={label}>

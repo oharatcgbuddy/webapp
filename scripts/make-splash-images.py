@@ -35,14 +35,15 @@ DEVICES = [
 ]
 
 
-def render(w: int, h: int) -> Image.Image:
+def render(w: int, h: int, ratio: int) -> Image.Image:
     canvas = Image.new("RGB", (w, h), YELLOW)
     logo = Image.open(LOGO).convert("RGBA")
     size = round(min(w, h) * 0.56)
     logo = logo.resize((size, size), Image.LANCZOS)
-    x, y = (w - size) // 2, (h - size) // 2 - round(h * 0.02)
-    # ombra dura: la forma del logo in nero, spostata in basso a destra
-    off = max(6, round(size * 0.025))
+    # Esattamente al centro, come la pagina di caricamento dell'app (src/components/app-splash.tsx): nessuno scatto.
+    x, y = (w - size) // 2, (h - size) // 2
+    # ombra dura: la forma del logo in nero, spostata in basso a destra (6 punti CSS come nell'app)
+    off = 6 * ratio
     shadow = Image.new("RGBA", logo.size, INK + (255,))
     shadow.putalpha(logo.getchannel("A"))
     canvas.paste(shadow, (x + off, y + off), shadow)
@@ -56,7 +57,7 @@ def main() -> None:
         w, h = pw * ratio, ph * ratio
         path = OUT / f"{w}x{h}.png"
         # Pochi colori piatti: con la palette ridotta il file pesa una frazione.
-        render(w, h).quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(path, optimize=True)
+        render(w, h, ratio).quantize(colors=96, method=Image.Quantize.MEDIANCUT, dither=Image.Dither.NONE).save(path, optimize=True)
         print(f"{path.relative_to(ROOT)}  {path.stat().st_size // 1024} KB")
 
 

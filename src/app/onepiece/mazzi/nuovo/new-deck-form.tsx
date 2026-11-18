@@ -23,6 +23,22 @@ export function NewDeckForm({ leaders }: { leaders: LeaderOpt[] }) {
         </label>
       </section>
 
+      <section className="brutal-card space-y-2 p-4">
+        <label className="block text-sm font-bold uppercase">
+          Importa un mazzo (facoltativo)
+          <textarea
+            name="import"
+            rows={4}
+            placeholder={"Link o codice di OPlay, oppure una lista:\n4xOP01-013\n4xOP01-016"}
+            className="mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2 font-mono text-xs normal-case"
+          />
+        </label>
+        <p className="text-xs">
+          Con un link OPlay (oplaytcg.com/deck-builder?d=…) il leader viene preso dal mazzo: non serve sceglierlo qui sotto.
+          Con una lista di carte, scegli il leader qui sotto.
+        </p>
+      </section>
+
       <section className="brutal-card p-4">
         <LeaderPicker name="leader_code" label="Leader del mazzo" leaders={leaders} />
       </section>

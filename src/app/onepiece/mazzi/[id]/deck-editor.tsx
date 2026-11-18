@@ -15,6 +15,7 @@ import {
   type DeckEntries,
 } from "@/lib/onepiece/deck-rules";
 import { parseDecklist } from "@/lib/onepiece/decklist";
+import { decodeOplay } from "@/lib/onepiece/oplay";
 import { deleteDeck, saveDeck } from "../actions";
 
 type Leader = { card_code: string; name: string; colors: string[]; image_path: string | null };
@@ -177,11 +178,25 @@ export function DeckEditor({
   };
 
   const doImport = () => {
-    const parsed = parseDecklist(importText, { requireFull: false });
-    if (parsed.errors.length) return setMsg({ ok: false, text: parsed.errors[0] });
-    if (parsed.cards.length === 0) return setMsg({ ok: false, text: "Incolla almeno una riga, per esempio 4xOP01-013." });
     const next: DeckEntries = {};
-    for (const c of parsed.cards) next[c.card_code] = c.qty;
+    // Link o codice di OPlay (oplaytcg.com/deck-builder?d=…) oppure lista di carte.
+    const oplay = decodeOplay(importText);
+    if (oplay) {
+      if (oplay.leaderCode && oplay.leaderCode !== leader.card_code) {
+        return setMsg({
+          ok: false,
+          text: `Questo mazzo OPlay ha il leader ${oplay.leaderCode}, diverso da ${leader.card_code}: crea un nuovo mazzo e importalo lì.`,
+        });
+      }
+      for (const c of oplay.entries) next[c.code] = (next[c.code] ?? 0) + c.qty;
+    } else {
+      const parsed = parseDecklist(importText, { requireFull: false });
+      if (parsed.errors.length) return setMsg({ ok: false, text: parsed.errors[0] });
+      if (parsed.cards.length === 0) {
+        return setMsg({ ok: false, text: "Incolla un link OPlay oppure almeno una riga, per esempio 4xOP01-013." });
+      }
+      for (const c of parsed.cards) next[c.card_code] = c.qty;
+    }
     const c2 = checkDeck(next, byCode, leader.colors);
     if (c2.errors.length) return setMsg({ ok: false, text: c2.errors[0].replace("carta sconosciuta", "carta non disponibile per questo leader") });
     setEntries(next);
@@ -388,9 +403,12 @@ export function DeckEditor({
             rows={5}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={"4xOP01-013\n4xOP01-016\n1xEB05-021"}
+            placeholder={"Link o codice di OPlay, oppure una lista:\n4xOP01-013\n4xOP01-016\n1xEB05-021"}
             className={`${field} mt-1 font-mono text-xs normal-case`}
           />
+          <span className="mt-1 block text-xs font-normal normal-case">
+            Da OPlay: incolla il link del mazzo (oplaytcg.com/deck-builder?d=…) o il suo &quot;Deck code&quot;.
+          </span>
         </label>
         <button type="button" onClick={doImport} disabled={!importText.trim()} className="brutal-btn w-full bg-white disabled:opacity-50">
           Importa

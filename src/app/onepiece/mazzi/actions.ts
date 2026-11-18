@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { cleanNote } from "@/lib/note-text";
+import { parseDecklist } from "@/lib/onepiece/decklist";
+import { decodeOplay } from "@/lib/onepiece/oplay";
 import {
   MAX_COPIES,
   checkDeck,
@@ -37,7 +39,25 @@ export async function createDeck(_prev: ActionState, fd: FormData): Promise<Acti
   if ("error" in name) return { error: nameError(name.error) };
   if (!name.value) return { error: "Dai un nome al mazzo." };
 
-  const leader = text(fd, "leader_code", 20);
+  // Importazione facoltativa: link o codice OPlay (porta con sé il leader) oppure una lista di carte (serve il leader scelto).
+  const importText = text(fd, "import", 4000);
+  let leader = text(fd, "leader_code", 20);
+  let imported: { card_code: string; qty: number }[] | null = null;
+  if (importText) {
+    const oplay = decodeOplay(importText);
+    if (oplay) {
+      if (!oplay.leaderCode) return { error: "Questo codice OPlay non contiene il leader." };
+      leader = oplay.leaderCode;
+      const merged = new Map<string, number>();
+      for (const e of oplay.entries) merged.set(e.code, (merged.get(e.code) ?? 0) + e.qty);
+      imported = [...merged].map(([card_code, qty]) => ({ card_code, qty }));
+    } else {
+      const parsed = parseDecklist(importText, { requireFull: false });
+      if (parsed.errors.length) return { error: parsed.errors[0] };
+      if (parsed.cards.length === 0) return { error: "Incolla un link OPlay o una lista di carte, per esempio 4xOP01-013." };
+      imported = parsed.cards;
+    }
+  }
   if (!CODE.test(leader)) return { error: "Scegli il leader del mazzo." };
 
   const op = supabase.schema("onepiece");
@@ -50,6 +70,15 @@ export async function createDeck(_prev: ActionState, fd: FormData): Promise<Acti
     .select("id")
     .single();
   if (error || !deck) return { error: "Non sono riuscito a creare il mazzo." };
+
+  // Le carte importate passano dagli stessi controlli del salvataggio; se non vanno bene il mazzo non resta vuoto a metà.
+  if (imported) {
+    const saved = await saveDeck(deck.id, name.value, imported);
+    if (saved.error) {
+      await op.from("decks").delete().eq("id", deck.id);
+      return { error: saved.error };
+    }
+  }
 
   revalidatePath(LIST);
   redirect(`${LIST}/${deck.id}`);

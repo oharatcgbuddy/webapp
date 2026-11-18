@@ -8,6 +8,9 @@
 // Senza URL e chiave fa una prova "offline": nessun database, solo i dati.
 //
 // Opzioni:
+//   --bandai <serie>     per un set non ancora nell'API: legge le carte dal sito ufficiale Bandai
+//                        (numero della serie dal menu di en.onepiece-cardgame.com/cardlist, es. 569118 = OP-18)
+//   --set=OP18           limita il lavoro a un set
 //   --from <cartella>    usa allSetCards.json e allSTCards.json già scaricati invece di chiamare l'API
 //   --images <cartella>  cartella delle immagini (es. OPTCGSim/.../Cards): carica anche le immagini
 //   --only=OP01-001,...  limita il lavoro a questi codici (per provare)
@@ -23,6 +26,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
+import { fetchBandaiSet } from "./bandai-cardlist.mjs";
 
 const API = "https://optcgapi.com/api";
 const UA = "ohara-tcg-buddy-catalog/0.1 (importazione manuale del catalogo)";
@@ -48,6 +52,13 @@ const imagesDir = value("--images");
 const tcg = (args.find((a) => a.startsWith("--tcg=")) ?? "--tcg=onepiece").slice(6);
 const onlyArg = args.find((a) => a.startsWith("--only="));
 const only = onlyArg ? new Set(onlyArg.slice(7).split(",").map((c) => c.trim().toUpperCase()).filter(Boolean)) : null;
+
+// --bandai <serie>: legge le carte di quel set dal sito ufficiale Bandai (per i set che l'API non ha ancora);
+// i dati ufficiali hanno la precedenza su quelli dell'API per gli stessi codici.
+const bandaiSeries = value("--bandai");
+const setArg = args.find((a) => a.startsWith("--set="));
+const onlySet = setArg ? setArg.slice(6).trim().toUpperCase() : null;
+const wanted = (code) => (!only || only.has(code)) && (!onlySet || code.startsWith(`${onlySet}-`));
 
 const url = process.env.SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -81,6 +92,14 @@ for (const endpoint of ["allSetCards", "allSTCards"]) {
 }
 console.log(`Righe lette dall'API: ${rows.length}`);
 
+if (bandaiSeries) {
+  const official = await fetchBandaiSet(bandaiSeries);
+  console.log(`Sito Bandai (serie ${bandaiSeries}): ${official.rows.length} carte${official.setName ? ` · ${official.setName}` : ""}`);
+  const officialCodes = new Set(official.rows.map((r) => r.card_set_id));
+  const kept = rows.filter((r) => !officialCodes.has(String(r.card_set_id ?? "").toUpperCase().replace(/_[A-Z0-9]+$/i, "")));
+  rows.splice(0, rows.length, ...kept, ...official.rows);
+}
+
 const toInt = (v) => {
   if (v === null || v === undefined || v === "") return null;
   const n = Number.parseInt(String(v), 10);
@@ -101,7 +120,7 @@ for (const r of rows) {
 
 const cards = new Map();
 for (const [code, { r }] of byCode) {
-  if (only && !only.has(code)) continue;
+  if (!wanted(code)) continue;
   const effect = r.card_text ? String(r.card_text).trim().slice(0, 2000) : null;
   const life = toInt(r.life);
   const counter = toInt(r.counter_amount);
@@ -147,7 +166,7 @@ if (imagesDir) {
     const m = FILE.exec(path.basename(rel));
     if (!m) continue; // include i "_small" e i file che non sono carte (es. Don)
     const code = m[1].toUpperCase();
-    if (only && !only.has(code)) continue;
+    if (!wanted(code)) continue;
     if (!folder.has(code)) folder.set(code, rel);
   }
   console.log(`Immagini trovate nella cartella: ${folder.size}`);
@@ -183,7 +202,7 @@ if (offline) {
 const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 const op = supabase.schema("onepiece");
 
-const { data: existingSets, error: setsErr } = await op.from("sets").select("code");
+const { data: existingSets, error: setsErr } = await op.from("sets").select("code, name");
 if (setsErr) {
   console.error("Non riesco a leggere i set:", setsErr.message);
   process.exit(1);
@@ -198,6 +217,11 @@ if (leadersErr) {
   process.exit(1);
 }
 const leaderImage = new Map(leaders.filter((l) => l.image_path).map((l) => [l.card_code, l.image_path]));
+
+// I leader che le carte importate hanno e la tabella dei leader non ancora: si creano (nome e colori dalla carta).
+const knownLeaders = new Set(leaders.map((l) => l.card_code));
+const newLeaders = [...cards.values()].filter((c) => c.type === "Leader" && !knownLeaders.has(c.card_code));
+console.log(`Leader nuovi da creare: ${newLeaders.length}${newLeaders.length ? " (" + newLeaders.map((l) => `${l.card_code} ${l.name}`).join(", ") + ")" : ""}`);
 
 const { data: existingCards, error: cardsErr } = await op.from("cards").select("card_code, image_path");
 if (cardsErr) {
@@ -220,6 +244,15 @@ if (newSets.length) {
   }
 }
 
+// Nome vero ai set che finora avevano solo il codice (creati da un'importazione provvisoria).
+for (const s of existingSets) {
+  const proper = setName(s.code);
+  if (s.name === s.code && proper !== s.code && [...cards.values()].some((c) => c.set_code === s.code)) {
+    const { error } = await op.from("sets").update({ name: proper }).eq("code", s.code);
+    if (error) console.error(`Nome del set ${s.code} non aggiornato: ${error.message}`);
+  }
+}
+
 // Le righe delle carte, a gruppi. Le immagini già collegate non si toccano (si aggiornano più sotto).
 const list = [...cards.values()];
 for (let i = 0; i < list.length; i += 400) {
@@ -231,6 +264,17 @@ for (let i = 0; i < list.length; i += 400) {
   }
 }
 console.log(`Carte scritte: ${list.length}`);
+
+if (newLeaders.length) {
+  const { error } = await op
+    .from("leaders")
+    .upsert(newLeaders.map((l) => ({ card_code: l.card_code, name: l.name, colors: l.colors, set_code: l.set_code })), { onConflict: "card_code" });
+  if (error) {
+    console.error("Errore creando i leader:", error.message);
+    process.exit(1);
+  }
+  console.log(`Leader creati: ${newLeaders.length}`);
+}
 
 // ---------- 4. Immagini ----------
 
@@ -288,6 +332,12 @@ if (imagesDir) {
   };
   await Promise.all(Array.from({ length: 6 }, worker));
   console.log(`Immagini: caricate ${uploaded}, riusate dai leader ${reused}, già presenti ${skipped}, ${(bytesTotal / 1048576).toFixed(1)} MB scritti.`);
+}
+
+// I leader nuovi usano la stessa immagine della loro carta.
+for (const l of newLeaders) {
+  const { data } = await op.from("cards").select("image_path").eq("card_code", l.card_code).maybeSingle();
+  if (data?.image_path) await op.from("leaders").update({ image_path: data.image_path }).eq("card_code", l.card_code);
 }
 
 if (failed.length) {

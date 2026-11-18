@@ -5,7 +5,7 @@ il servizio scarica solo le immagini pubbliche dal bucket di Supabase Storage (m
 e restituisce un PNG. Non ha database né stato.
 
 Variabili d'ambiente:
-  SUPABASE_URL    es. https://<progetto>.supabase.co (obbligatoria)
+  SUPABASE_URL    es. https://<progetto>.supabase.co (se manca si usa NEXT_PUBLIC_SUPABASE_URL)
   IMAGE_API_KEY   chiave condivisa con l'app, almeno 24 caratteri (obbligatoria)
   MAX_RENDERS     disegni contemporanei (default 2)
 """
@@ -29,7 +29,8 @@ from render import RenderRequest, render
 
 Image.MAX_IMAGE_PIXELS = 20_000_000  # contro immagini "bomba"
 
-SUPABASE_URL = os.environ["SUPABASE_URL"].rstrip("/")
+# Nel progetto Vercel dell'app l'URL è già in NEXT_PUBLIC_SUPABASE_URL (diverso per ambiente): si riusa quello.
+SUPABASE_URL = (os.environ.get("SUPABASE_URL") or os.environ["NEXT_PUBLIC_SUPABASE_URL"]).rstrip("/")
 API_KEY = os.environ["IMAGE_API_KEY"]
 if len(API_KEY) < 24:
     raise RuntimeError("IMAGE_API_KEY deve avere almeno 24 caratteri")

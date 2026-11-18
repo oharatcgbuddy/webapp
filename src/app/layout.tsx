@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk } from "next/font/google";
 import { TabBar } from "@/components/tab-bar";
+import { AppSplash } from "@/components/app-splash";
+import { startupImages } from "@/lib/splash";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -12,7 +14,7 @@ const spaceGrotesk = Space_Grotesk({
 export const metadata: Metadata = {
   title: "Ohara TCG Buddy",
   description: "Traccia tornei e risultati dei tuoi TCG.",
-  appleWebApp: { capable: true, title: "Ohara Buddy", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Ohara Buddy", statusBarStyle: "default", startupImage: startupImages },
 };
 
 export const viewport: Viewport = {
@@ -26,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="it" className={`${spaceGrotesk.variable} h-full antialiased`}>
       <body className="mx-auto flex min-h-full max-w-md flex-col pb-24">
+        <AppSplash />
         {children}
         <Suspense fallback={null}>
           <TabBar />

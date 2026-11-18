@@ -42,6 +42,52 @@ textarea {
   font-size: 16px;
 }
 
+/* Schermata di caricamento della PWA (componente AppSplash): solo quando l'app è aperta dall'icona. */
+.app-splash {
+  display: none;
+}
+@media (display-mode: standalone) {
+  .app-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--yellow);
+    transition: opacity 0.35s ease;
+    /* Senza JavaScript non svanirebbe mai: dopo 4 secondi sparisce comunque. */
+    animation: splash-fallback 0.35s ease 4s forwards;
+  }
+  .app-splash[data-hide="true"] {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .app-splash img {
+    width: min(56vw, 260px);
+    height: auto;
+    filter: drop-shadow(6px 6px 0 var(--ink));
+    animation: splash-pulse 1.4s ease-in-out infinite;
+  }
+}
+@keyframes splash-fallback {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+@keyframes splash-pulse {
+  50% {
+    transform: scale(1.04);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-splash img {
+    animation: none;
+  }
+}
+
 @layer components {
   .brutal-card {
     @apply border-[3px] border-ink bg-white shadow-brutal;

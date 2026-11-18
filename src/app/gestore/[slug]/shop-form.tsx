@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import type { ActionState } from "./actions";
+import { AddressSearch } from "./address-search";
 import { LocationPicker } from "./location-picker";
 
 export type ShopValues = {
@@ -36,6 +37,10 @@ export function ShopForm({
   savedMessage?: string;
 }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(saveAction, {});
+  const [address, setAddress] = useState(initial.address);
+  const [city, setCity] = useState(initial.city);
+  const [province, setProvince] = useState(initial.province);
+  const [target, setTarget] = useState<{ lat: number; lng: number; n: number } | null>(null);
 
   return (
     <form action={action} className="brutal-card space-y-3 p-4">
@@ -43,10 +48,27 @@ export function ShopForm({
         Nome
         <input name="name" required maxLength={80} defaultValue={initial.name} className={field} />
       </label>
+      <div className={label}>
+        Indirizzo
+        <AddressSearch
+          value={address}
+          onChange={setAddress}
+          className={field}
+          onPick={(s) => {
+            if (s.address) setAddress(s.address);
+            if (s.city) setCity(s.city);
+            if (s.province) setProvince(s.province);
+            setTarget({ lat: s.lat, lng: s.lng, n: Date.now() });
+          }}
+        />
+        <span className="mt-1 block text-xs font-medium normal-case">
+          Scrivi e scegli un suggerimento (OpenStreetMap): compila città, provincia e posizione sulla mappa.
+        </span>
+      </div>
       <div className="grid grid-cols-3 gap-2">
         <label className={`${label} col-span-2`}>
           Città
-          <input name="city" required maxLength={60} defaultValue={initial.city} className={field} />
+          <input name="city" required maxLength={60} value={city} onChange={(e) => setCity(e.target.value)} className={field} />
         </label>
         <label className={label}>
           Prov.
@@ -54,15 +76,12 @@ export function ShopForm({
             name="province"
             required
             maxLength={2}
-            defaultValue={initial.province}
+            value={province}
+            onChange={(e) => setProvince(e.target.value)}
             className={`${field} uppercase`}
           />
         </label>
       </div>
-      <label className={label}>
-        Indirizzo
-        <input name="address" maxLength={120} defaultValue={initial.address} className={field} />
-      </label>
       <label className={label}>
         Telefono
         <input name="phone" type="tel" maxLength={30} defaultValue={initial.phone} className={field} />
@@ -88,7 +107,7 @@ export function ShopForm({
         <textarea name="description" rows={4} maxLength={1000} defaultValue={initial.description} className={field} />
       </label>
 
-      <LocationPicker initialLat={initial.lat} initialLng={initial.lng} />
+      <LocationPicker initialLat={initial.lat} initialLng={initial.lng} target={target} />
 
       {state.error && (
         <p role="alert" className="border-[3px] border-ink bg-brand-red p-3 font-bold">

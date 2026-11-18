@@ -79,4 +79,7 @@ result = RenderRequest.model_validate(
      "placement_text": "1° su 32", "tournament": "Locals di giovedì", "date": "18 nov 2026", "shop": {"name": "Magic Lair Torino"}, "matchups": matchups}
 )
 (OUT / "result.png").write_bytes(render(result, images, logo, None))
+for fmt in ("story", "post"):
+    r = result.model_copy(update={"format": fmt})
+    (OUT / f"result_{fmt}.png").write_bytes(render(r, images, logo, None))
 print("scritti:", OUT / "deck.png", OUT / "result.png", "| carte nel mazzo:", total)

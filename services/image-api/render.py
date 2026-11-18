@@ -21,10 +21,8 @@ FONT_PATH = Path(__file__).parent / "fonts" / "SpaceGrotesk.ttf"
 W = 1080  # larghezza in "pixel di progetto"
 SS = 2  # supercampionamento
 PAD = 56
-COLS = 6
 GAP = 12
-CARD_W = (W - 2 * PAD - (COLS - 1) * GAP) // COLS
-CARD_H = round(CARD_W * 1.4)
+TARGET_H = {"story": 1920, "post": 1350}
 
 # Stile del sito (neo-brutalismo): carta, inchiostro, bordi spessi e ombre dure.
 PAPER = (255, 244, 214)
@@ -85,6 +83,8 @@ class Shop(BaseModel):
 
 class RenderRequest(BaseModel):
     kind: Literal["deck", "result"] = "deck"
+    # full = altezza libera; story = 1080x1920 (9:16); post = 1080x1350 (4:5, Instagram)
+    format: Literal["full", "story", "post"] = "full"
     title: str = Field(max_length=60)
     leader: Leader
     cards: list[Card] = Field(max_length=60)
@@ -221,18 +221,38 @@ def stats(cards: list[Card]):
 # ---------- rendering ----------
 
 
-def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes | None, shop_logo: bytes | None) -> bytes:
+def die(d, x, y, size, fill):
+    """Dado a sei facce (stile del sito: bordo nero, ombra dura). Verde = dado vinto, rosso = dado perso."""
+    brutal(d, (x, y, x + size, y + size), fill=fill, bw=3, sh=3)
+    r = max(2.2, size * 0.075)
+    for fx, fy in ((0.28, 0.28), (0.72, 0.28), (0.5, 0.5), (0.28, 0.72), (0.72, 0.72)):
+        cx, cy = x + size * fx, y + size * fy
+        d.ellipse((S(cx - r), S(cy - r), S(cx + r), S(cy + r)), fill=WHITE, outline=INK, width=S(1.2))
+
+
+def draw_all(req, images, app_logo, shop_logo, total_h=None):
+    compact = req.format == "post"
+    cols = 8 if compact else 6
+    card_w = (W - 2 * PAD - (cols - 1) * GAP) // cols
+    card_h = round(card_w * 1.4)
     cards = sorted(req.cards, key=lambda c: (c.cost if c.cost is not None else 99, c.code))
-    rows = math.ceil(len(cards) / COLS) if cards else 0
+    rows = math.ceil(len(cards) / cols) if cards else 0
     st = stats(req.cards)
 
+    lw, lh = (140, 196) if compact else (168, 235)
     bar_h = 96
-    head_h = bar_h + 52 + 235 + 44
-    grid_h = rows * (CARD_H + GAP) if rows else 0
-    stats_h = 230 if cards else 0
-    match_h = (74 + len(req.matchups) * 62 + 20) if req.matchups else 0
-    foot_h = 110
-    H = head_h + grid_h + (30 + stats_h if stats_h else 0) + (34 + match_h if match_h else 0) + 40 + foot_h
+    top_gap = 36 if compact else 52
+    head_h = bar_h + top_gap + lh + (30 if compact else 44)
+    grid_h = rows * (card_h + GAP) if rows else 0
+    stats_h = 0 if compact else (230 if cards else 0)
+    row_h = 56 if compact else 62
+    m_rows = math.ceil(len(req.matchups) / 2) if compact else len(req.matchups)
+    match_h = (74 + m_rows * row_h + 20) if req.matchups else 0
+    foot_h = 96 if compact else 110
+    gap = 24 if compact else 30
+    natural = head_h + grid_h + (gap + stats_h if stats_h else 0) + (gap + 4 + match_h if match_h else 0) + 36 + foot_h
+    H = max(natural, total_h or 0)
+    dy = (H - natural) / 2  # spazio in più: il contenuto resta centrato tra barra e piè di pagina
 
     canvas = Image.new("RGBA", (S(W), S(H)), PAPER + (255,))
     d = ImageDraw.Draw(canvas)
@@ -248,20 +268,21 @@ def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes 
     text(d, (W - PAD - 135, 44), "ONE PIECE · TCG", font(22, 700), anchor="mm")
 
     # --- intestazione ---
-    lw, lh = 168, 235
-    ly = bar_h + 52
+    ly = bar_h + top_gap + dy
     d.rectangle((S(PAD + 8), S(ly + 8), S(PAD + lw + 8), S(ly + lh + 8)), fill=INK)
     frame_image(canvas, d, load_image(images.get(f"leader:{req.leader.code}")), (PAD, ly, PAD + lw, ly + lh), req.leader.code, bw=4)
     x = PAD + lw + 40
-    title = fit(d, req.title, font(64, 700), W - x - PAD)
-    text(d, (x, ly - 4), title, font(64, 700))
-    cx = color_dots(d, x, ly + 86, req.leader.colors, r=12)
+    tsize = 56 if compact else 64
+    title = fit(d, req.title, font(tsize, 700), W - x - PAD)
+    text(d, (x, ly - 4), title, font(tsize, 700))
+    off = 74 if compact else 86
+    cx = color_dots(d, x, ly + off, req.leader.colors, r=12)
     sub = f"{req.leader.code} · {req.leader.name}"
-    text(d, (cx + 8, ly + 98), fit(d, sub, font(28, 700), W - cx - PAD - 20), font(28, 700), anchor="lm")
-    text(d, (x, ly + 130), f"{st['total']} carte", font(26, 600), fill=MUTED)
+    text(d, (cx + 8, ly + off + 12), fit(d, sub, font(28, 700), W - cx - PAD - 20), font(28, 700), anchor="lm")
+    text(d, (x, ly + off + 44), f"{st['total']} carte", font(26, 600), fill=MUTED)
 
     bx = x
-    by = ly + 180
+    by = ly + lh - 44
     if req.kind == "result" and req.result_label:
         bx = pill(d, bx, by, req.result_label, font(28, 700), YELLOW if req.result_winner else BLUE) + 16
         if req.placement_text:
@@ -272,21 +293,23 @@ def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes 
             bx = pill(d, bx, by, label, font(24, 600), WHITE) + 16
 
     # --- griglia del mazzo ---
+    gy = head_h + dy
     for i, c in enumerate(cards):
-        r, col = divmod(i, COLS)
-        x0 = PAD + col * (CARD_W + GAP)
-        y1 = head_h + r * (CARD_H + GAP)
-        frame_image(canvas, d, load_image(images.get(f"card:{c.code}")), (x0, y1, x0 + CARD_W, y1 + CARD_H), c.code, bw=3)
+        r, col = divmod(i, cols)
+        x0 = PAD + col * (card_w + GAP)
+        y1 = gy + r * (card_h + GAP)
+        frame_image(canvas, d, load_image(images.get(f"card:{c.code}")), (x0, y1, x0 + card_w, y1 + card_h), c.code, bw=3)
         label = f"×{c.qty}"
-        f = font(24, 700)
-        bw = text_w(d, label, f) + 20
-        brutal(d, (x0 + CARD_W - bw - 6, y1 + CARD_H - 40, x0 + CARD_W - 6, y1 + CARD_H - 8), fill=YELLOW, bw=3, sh=0)
-        text(d, (x0 + CARD_W - bw / 2 - 6, y1 + CARD_H - 24), label, f, anchor="mm")
-    y = head_h + grid_h
+        f = font(18 if compact else 24, 700)
+        bw = text_w(d, label, f) + (14 if compact else 20)
+        bh = 24 if compact else 32
+        brutal(d, (x0 + card_w - bw - 4, y1 + card_h - bh - 6, x0 + card_w - 4, y1 + card_h - 6), fill=YELLOW, bw=3, sh=0)
+        text(d, (x0 + card_w - bw / 2 - 4, y1 + card_h - 6 - bh / 2), label, f, anchor="mm")
+    y = gy + grid_h
 
     # --- statistiche ---
-    if cards:
-        y += 30
+    if stats_h:
+        y += gap
         brutal(d, (PAD, y, W - PAD, y + stats_h), fill=WHITE)
         px = PAD + 28
         text(d, (px, y + 20), "Curva dei costi", font(22, 700), anchor="la")
@@ -325,26 +348,54 @@ def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes 
 
     # --- scontri ---
     if req.matchups:
-        y += 34
+        y += gap + 4
         brutal(d, (PAD, y, W - PAD, y + match_h), fill=WHITE)
         text(d, (PAD + 28, y + 24), "Scontri", font(26, 700), anchor="la")
-        ry = y + 70
+        # legenda del dado
+        lx = W - PAD - 28
+        text(d, (lx, y + 38), "perso", font(20, 600), fill=MUTED, anchor="rm")
+        lx -= text_w(d, "perso", font(20, 600)) + 10 + 26
+        die(d, lx, y + 25, 26, RED)
+        lx -= 24
+        text(d, (lx, y + 38), "vinto", font(20, 600), fill=MUTED, anchor="rm")
+        lx -= text_w(d, "vinto", font(20, 600)) + 10 + 26
+        die(d, lx, y + 25, 26, GREEN)
+        text(d, (lx - 10, y + 38), "Dado", font(20, 600), fill=MUTED, anchor="rm")
+
+        verdict = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "draw": ("PARI", YELLOW)}
+        colw = (W - 2 * PAD - 56 - 24) / 2
         for i, m in enumerate(req.matchups):
-            if i:
-                d.line([(S(PAD + 28), S(ry - 4)), (S(W - PAD - 28), S(ry - 4))], fill=INK, width=S(1.5))
-            text(d, (PAD + 28, ry + 26), f"R{m.round}" if m.round else "", font(22, 700), fill=MUTED, anchor="lm")
-            thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code else None
-            frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
-            nx = PAD + 140
-            name = m.opponent_name or m.opponent_code or "Avversario n/d"
-            shown = fit(d, name, font(26, 700), 380)
-            text(d, (nx, ry + 26), shown, font(26, 700), anchor="lm")
-            color_dots(d, nx + text_w(d, shown, font(26, 700)) + 14, ry + 16, m.opponent_colors, r=9)
-            if m.dice_won is not None:
-                text(d, (W - PAD - 28 - 118 - 24, ry + 26), "Dado vinto" if m.dice_won else "Dado perso", font(22, 600), fill=MUTED, anchor="rm")
-            label, fill = {"win": ("VINTO", GREEN), "loss": ("PERSO", RED), "draw": ("PARI", YELLOW)}[m.result]
-            pill(d, W - PAD - 28 - 118, ry + 4, label, font(22, 700), fill, INK, pad_x=20, h=44, min_w=118)
-            ry += 62
+            if compact:
+                ccol, crow = i % 2, i // 2
+                cx0 = PAD + 28 + ccol * (colw + 24)
+                ry = y + 70 + crow * row_h
+                if ccol == 0 and crow:
+                    d.line([(S(PAD + 28), S(ry - 4)), (S(W - PAD - 28), S(ry - 4))], fill=INK, width=S(1.5))
+                text(d, (cx0, ry + 24), f"R{m.round}" if m.round else "", font(20, 700), fill=MUTED, anchor="lm")
+                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code else None
+                frame_image(canvas, d, thumb, (cx0 + 40, ry + 2, cx0 + 40 + 30, ry + 2 + 42), "", bw=2.5)
+                name = m.opponent_name or m.opponent_code or "Avversario n/d"
+                text(d, (cx0 + 82, ry + 24), fit(d, name, font(21, 700), colw - 82 - 36 - 12 - 96 - 8), font(21, 700), anchor="lm")
+                if m.dice_won is not None:
+                    die(d, cx0 + colw - 96 - 12 - 32, ry + 7, 32, GREEN if m.dice_won else RED)
+                label, fill = verdict[m.result]
+                pill(d, cx0 + colw - 96, ry + 4, label, font(20, 700), fill, INK, pad_x=10, h=38, min_w=96)
+            else:
+                ry = y + 70 + i * row_h
+                if i:
+                    d.line([(S(PAD + 28), S(ry - 4)), (S(W - PAD - 28), S(ry - 4))], fill=INK, width=S(1.5))
+                text(d, (PAD + 28, ry + 26), f"R{m.round}" if m.round else "", font(22, 700), fill=MUTED, anchor="lm")
+                thumb = load_image(images.get(f"opp:{m.opponent_code}")) if m.opponent_code else None
+                frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
+                nx = PAD + 140
+                name = m.opponent_name or m.opponent_code or "Avversario n/d"
+                shown = fit(d, name, font(26, 700), 380)
+                text(d, (nx, ry + 26), shown, font(26, 700), anchor="lm")
+                color_dots(d, nx + text_w(d, shown, font(26, 700)) + 14, ry + 16, m.opponent_colors, r=9)
+                if m.dice_won is not None:
+                    die(d, W - PAD - 28 - 118 - 24 - 40, ry + 5, 40, GREEN if m.dice_won else RED)
+                label, fill = verdict[m.result]
+                pill(d, W - PAD - 28 - 118, ry + 4, label, font(22, 700), fill, INK, pad_x=20, h=44, min_w=118)
         y += match_h
 
     # --- piè di pagina ---
@@ -358,13 +409,28 @@ def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes 
         right = W - PAD
         name = fit(d, req.shop.name, font(28, 700), 420)
         if sl is not None:
-            frame_image(canvas, d, sl, (right - 70, mid - 35, right, mid + 35), "", bw=3)
-            right -= 90
+            frame_image(canvas, d, sl, (right - 64, mid - 32, right, mid + 32), "", bw=3)
+            right -= 84
         text(d, (right, mid), name, font(28, 700), anchor="rm")
     else:
         text(d, (W - PAD, mid), "ohara-tcg-buddy.vercel.app", font(24, 600), anchor="rm")
+    return canvas, H, natural
 
-    out = canvas.convert("RGB").resize((W, H), Image.LANCZOS)
+
+def render(req: RenderRequest, images: dict[str, bytes | None], app_logo: bytes | None, shop_logo: bytes | None) -> bytes:
+    target = TARGET_H.get(req.format)
+    canvas, H, natural = draw_all(req, images, app_logo, shop_logo, target)
+    out = canvas.convert("RGB")
+    if target and H > target:
+        # Troppo contenuto per il formato: si riduce tutto per farlo stare (margine color carta ai lati).
+        s = target / H
+        w2 = round(W * s)
+        small = out.resize((w2, target), Image.LANCZOS)
+        base = Image.new("RGB", (W, target), PAPER)
+        base.paste(small, ((W - w2) // 2, 0))
+        out = base
+    else:
+        out = out.resize((W, H), Image.LANCZOS)
     buf = io.BytesIO()
     out.save(buf, format="PNG", optimize=True)
     return buf.getvalue()

@@ -154,7 +154,7 @@ export function DeckEditor({
   const doImport = () => {
     const parsed = parseDecklist(importText, { requireFull: false });
     if (parsed.errors.length) return setMsg({ ok: false, text: parsed.errors[0] });
-    if (parsed.cards.length === 0) return setMsg({ ok: false, text: "Incolla almeno una riga, per esempio 4x OP01-013." });
+    if (parsed.cards.length === 0) return setMsg({ ok: false, text: "Incolla almeno una riga, per esempio 4xOP01-013." });
     const next: DeckEntries = {};
     for (const c of parsed.cards) next[c.card_code] = c.qty;
     const c2 = checkDeck(next, byCode, leader.colors);
@@ -350,7 +350,7 @@ export function DeckEditor({
         <h2 className="font-black uppercase">Testo del mazzo</h2>
         <label className="block text-sm font-bold uppercase">
           Esporta
-          <textarea readOnly rows={6} value={deckToText(entries, (c) => byCode.get(c)?.name)} className={`${field} mt-1 font-mono text-xs normal-case`} />
+          <textarea readOnly rows={6} value={deckToText(entries)} className={`${field} mt-1 font-mono text-xs normal-case`} />
         </label>
         <label className="block text-sm font-bold uppercase">
           Importa (sostituisce il mazzo)
@@ -358,7 +358,7 @@ export function DeckEditor({
             rows={5}
             value={importText}
             onChange={(e) => setImportText(e.target.value)}
-            placeholder={"4x OP01-013\n4x OP01-016"}
+            placeholder={"4xOP01-013\n4xOP01-016\n1xEB05-021"}
             className={`${field} mt-1 font-mono text-xs normal-case`}
           />
         </label>

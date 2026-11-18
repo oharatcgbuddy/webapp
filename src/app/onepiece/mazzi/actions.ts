@@ -117,7 +117,7 @@ export async function saveDeck(
 
   const { error: upError } = await op
     .from("decks")
-    .update({ name: name.value, decklist_text: deckToText(entries, (c) => catalog.get(c)?.name) })
+    .update({ name: name.value, decklist_text: deckToText(entries) })
     .eq("id", deckId);
   if (upError) return { error: "Non sono riuscito a salvare il nome del mazzo." };
 

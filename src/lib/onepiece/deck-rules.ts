@@ -43,13 +43,11 @@ export function colorsMatch(cardColors: string[], leaderColors: string[]): boole
   return cardColors.length === 0 || cardColors.some((c) => leaderColors.includes(c));
 }
 
-// Testo del mazzo: "4x OP01-013 Nome", una riga per carta. Il lettore (parseDecklist) ignora il nome.
-export function deckToText(entries: DeckEntries, nameOf: (code: string) => string | undefined): string {
+// Testo del mazzo: una riga per carta nel formato "4xOP01-013" (quantità, "x", codice, senza spazi).
+// Il lettore (parseDecklist) accetta anche le varianti con spazi ("4x OP01-013", "4 OP01-013").
+export function deckToText(entries: DeckEntries): string {
   return entriesToCards(entries)
-    .map((c) => {
-      const name = nameOf(c.card_code);
-      return `${c.qty}x ${c.card_code}${name && name !== c.card_code ? ` ${name}` : ""}`;
-    })
+    .map((c) => `${c.qty}x${c.card_code}`)
     .join("\n");
 }
 

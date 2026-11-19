@@ -156,10 +156,10 @@ def load_image(data: bytes | None) -> Image.Image | None:
         return None
 
 
-def paste_rounded(canvas: Image.Image, img: Image.Image | None, box, radius, placeholder: str = "", cover: bool = True):
+def paste_rounded(canvas: Image.Image, img: Image.Image | None, box, radius, placeholder: str = "", cover: bool = True, transparent: bool = False):
     x0, y0, x1, y1 = box
     w, h = S(x1 - x0), S(y1 - y0)
-    tile = Image.new("RGBA", (w, h), (235, 225, 195, 255) if cover else (0, 0, 0, 0))
+    tile = Image.new("RGBA", (w, h), (235, 225, 195, 255) if cover and not transparent else (0, 0, 0, 0))
     if img is not None:
         iw, ih = img.size
         scale = max(w / iw, h / ih) if cover else min(w / iw, h / ih)
@@ -346,11 +346,11 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     d.rectangle((S(PAD + 8), S(ly + 8), S(PAD + lw + 8), S(ly + lh + 8)), fill=INK)
     frame_image(canvas, d, load_image(images.get(f"leader:{req.leader.code}")), (PAD, ly, PAD + lw, ly + lh), req.leader.code, bw=4)
     x = PAD + lw + 40
-    # Logo del locale senza cornice, in alto a destra: il testo dell'intestazione si ferma prima.
+    # Logo del locale tondo e senza cornice, in alto a destra: il testo dell'intestazione si ferma prima.
     logo_sz = round((180 if compact else 210) * hk)
     right_limit = W - PAD - (logo_sz + 28 if shop_img is not None else 0)
     if shop_img is not None:
-        paste_rounded(canvas, shop_img, (W - PAD - logo_sz, ly, W - PAD, ly + logo_sz), 0, "", cover=False)
+        paste_rounded(canvas, shop_img, (W - PAD - logo_sz, ly, W - PAD, ly + logo_sz), logo_sz / 2, "", cover=True, transparent=True)
     tsize = round((56 if compact else 64) * hk)
     title_f, title = shrink(d, req.title, tsize, 700, right_limit - x, 36)
     text(d, (x, ly - 4), title, title_f)

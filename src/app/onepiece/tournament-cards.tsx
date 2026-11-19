@@ -32,11 +32,16 @@ function euro(cents: number | null) {
 
 const RADII = [10, 25, 50, 100, 0]; // 0 = nessun limite
 
+// Giorno nel fuso italiano come "AAAA-MM-GG" (il formato del selettore data).
+const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" });
+const dayOf = (d: Date) => dayFmt.format(d);
+
 export function TournamentCards({ items, emptyHint }: { items: TournamentItem[]; emptyHint: string }) {
   const [user, setUser] = useState<LatLng | null>(null);
   const [radius, setRadius] = useState(50);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [day, setDay] = useState(""); // "" = tutte le date
 
   // La posizione resta sul dispositivo: non viene inviata al server.
   function locate() {
@@ -64,7 +69,8 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
   }
 
   const rows = useMemo(() => {
-    const withKm = items.map((t) => {
+    const dated = day ? items.filter((t) => dayOf(new Date(t.starts_at)) === day) : items;
+    const withKm = dated.map((t) => {
       const s = t.shops;
       const km = user && s && s.lat != null && s.lng != null ? distanceKm(user, { lat: s.lat, lng: s.lng }) : null;
       return { t, km };
@@ -73,11 +79,35 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
     return withKm
       .filter((r) => r.km !== null && (radius === 0 || r.km <= radius))
       .sort((a, b) => (a.km as number) - (b.km as number));
-  }, [items, user, radius]);
+  }, [items, user, radius, day]);
 
   return (
     <>
       <div className="brutal-card space-y-2 p-3">
+        <div className="flex items-end gap-2">
+          <button
+            type="button"
+            onClick={() => setDay(day === dayOf(new Date()) ? "" : dayOf(new Date()))}
+            aria-pressed={day !== "" && day === dayOf(new Date())}
+            className={`brutal-btn ${day !== "" && day === dayOf(new Date()) ? "bg-brand-yellow" : "bg-white"}`}
+          >
+            Oggi
+          </button>
+          <label className="block flex-1 text-sm font-bold">
+            Data
+            <input
+              type="date"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              className="mt-1 block w-full border-[3px] border-ink bg-white px-2 py-2"
+            />
+          </label>
+          {day && (
+            <button type="button" onClick={() => setDay("")} className="brutal-btn bg-white">
+              Tutte
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={locate}
@@ -146,7 +176,9 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
           <p className="text-sm">
             {user
               ? "Nessun torneo entro questa distanza, o i negozi non hanno ancora una posizione sulla mappa."
-              : emptyHint}
+              : day
+                ? "Nessun torneo in questa data: prova un altro giorno o togli il filtro."
+                : emptyHint}
           </p>
         </div>
       )}

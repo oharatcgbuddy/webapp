@@ -25,9 +25,21 @@ export async function saveBandaiOrganizer(supabase: Supabase, shopId: string, va
     const { error } = await supabase.from("shop_external_ids").delete().eq("shop_id", shopId).eq("source", BANDAI_ORGANIZER_SOURCE);
     return error ? "Non sono riuscito a togliere l'ID di BANDAI TCG+." : null;
   }
-  const { error } = await supabase
+  // Niente upsert: PostgREST aggiornerebbe anche shop_id e source, ma ai gestori è concesso l'UPDATE solo su external_id.
+  const { data: existing, error: readError } = await supabase
     .from("shop_external_ids")
-    .upsert({ shop_id: shopId, source: BANDAI_ORGANIZER_SOURCE, external_id: value }, { onConflict: "shop_id,source" });
+    .select("shop_id")
+    .eq("shop_id", shopId)
+    .eq("source", BANDAI_ORGANIZER_SOURCE)
+    .maybeSingle();
+  if (readError) return "Non sono riuscito a salvare l'ID di BANDAI TCG+.";
+  const { error } = existing
+    ? await supabase
+        .from("shop_external_ids")
+        .update({ external_id: value })
+        .eq("shop_id", shopId)
+        .eq("source", BANDAI_ORGANIZER_SOURCE)
+    : await supabase.from("shop_external_ids").insert({ shop_id: shopId, source: BANDAI_ORGANIZER_SOURCE, external_id: value });
   if (error?.code === "23505") return "Questo ID di BANDAI TCG+ è già collegato a un altro negozio.";
   return error ? "Non sono riuscito a salvare l'ID di BANDAI TCG+." : null;
 }

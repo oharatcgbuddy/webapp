@@ -174,7 +174,12 @@ export function ResultForm({
             Leader del mazzo: {savedDeck.leader_code} · {leaders.find((l) => l.card_code === savedDeck.leader_code)?.name ?? ""}
           </p>
         ) : (
-          <LeaderPicker name="leader_code" label="Il tuo leader" leaders={leaders} />
+          <LeaderPicker
+            name="leader_code"
+            label={deckChoice === "new" ? "Il tuo leader (se non è nella lista)" : "Il tuo leader"}
+            leaders={leaders}
+            required={deckChoice !== "new"}
+          />
         )}
 
         <label className={label}>
@@ -205,7 +210,7 @@ export function ResultForm({
               className={`${field} font-mono text-sm`}
               placeholder={"4x OP01-013\n4x OP01-016\n..."}
             />
-            <span className="mt-1 block text-xs font-normal normal-case">Una carta per riga. 50 carte, leader escluso.</span>
+            <span className="mt-1 block text-xs font-normal normal-case">Una carta per riga. 50 carte, più il leader se vuoi includerlo (lo riconosco da lì).</span>
           </label>
         )}
       </section>

@@ -109,9 +109,17 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   let existingDeckId: string | null = null;
   let deck: ReturnType<typeof parseDecklist> | null = null;
   if (deckChoice === "new") {
-    deck = parseDecklist(deckText);
+    // La lista può includere il leader: se c'è, è quello del mazzo.
+    const { data: ls } = await op.from("leaders").select("card_code");
+    deck = parseDecklist(deckText, { leaderCodes: new Set((ls ?? []).map((l) => l.card_code)) });
     if (deck.errors.length > 0) return { error: deck.errors[0] };
     if (deck.cards.length === 0) return { error: "Incolla una decklist valida o scegli un mazzo salvato." };
+    if (deck.leaderCode) {
+      if (leaderCode && leaderCode !== deck.leaderCode) {
+        return { error: `La decklist ha il leader ${deck.leaderCode}, diverso da ${leaderCode}.` };
+      }
+      leaderCode = deck.leaderCode;
+    }
   } else if (deckChoice) {
     if (!UUID.test(deckChoice)) return { error: "Mazzo non valido." };
     const { data: d } = await op
@@ -124,7 +132,7 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     existingDeckId = d.id;
     leaderCode = d.leader_code; // il mazzo salvato decide il leader, come in "Cambia mazzo"
   }
-  if (!leaderCode) return { error: "Scegli il tuo leader." };
+  if (!leaderCode) return { error: "Scegli il tuo leader o incolla una decklist che lo include." };
 
   // Locale facoltativo per i tornei liberi (nome e logo nelle immagini): deve essere un locale visibile.
   const shopChoice = tournamentId ? "" : text(fd, "shop_id", 40);

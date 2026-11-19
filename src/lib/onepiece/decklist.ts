@@ -2,6 +2,8 @@ export type DeckCard = { card_code: string; qty: number };
 
 export type ParsedDecklist = {
   cards: DeckCard[];
+  // Leader trovato nella lista (solo se si passano i codici dei leader); le sue carte non entrano in `cards` né nel totale.
+  leaderCode: string | null;
   total: number;
   errors: string[];
 };
@@ -14,7 +16,11 @@ const LINE = /^(\d{1,2})\s*x?\s*([A-Za-z]{1,4}\d{0,2}-\d{3})\b/i;
 
 // requireFull: true (predefinito) pretende esattamente 50 carte, come per il risultato di un torneo;
 // false accetta anche un mazzo incompleto (bozza nel deckbuilder).
-export function parseDecklist(text: string, { requireFull = true }: { requireFull?: boolean } = {}): ParsedDecklist {
+// leaderCodes: se la lista include anche il leader (1 copia), lo riconosce da qui e lo toglie dal conteggio.
+export function parseDecklist(
+  text: string,
+  { requireFull = true, leaderCodes }: { requireFull?: boolean; leaderCodes?: ReadonlySet<string> } = {},
+): ParsedDecklist {
   const byCode = new Map<string, number>();
   const errors: string[] = [];
 
@@ -36,7 +42,18 @@ export function parseDecklist(text: string, { requireFull = true }: { requireFul
     byCode.set(code, (byCode.get(code) ?? 0) + qty);
   });
 
-  const cards = [...byCode].map(([card_code, qty]) => ({ card_code, qty }));
+  let cards = [...byCode].map(([card_code, qty]) => ({ card_code, qty }));
+  let leaderCode: string | null = null;
+  if (leaderCodes && errors.length === 0) {
+    const found = cards.filter((c) => leaderCodes.has(c.card_code));
+    if (found.length > 1) {
+      errors.push(`La lista contiene più di un leader (${found.map((c) => c.card_code).join(", ")})`);
+    } else if (found.length === 1) {
+      if (found[0].qty !== 1) errors.push(`${found[0].card_code}: il leader va indicato una sola volta`);
+      leaderCode = found[0].card_code;
+      cards = cards.filter((c) => c.card_code !== leaderCode);
+    }
+  }
   const total = cards.reduce((sum, c) => sum + c.qty, 0);
 
   if (errors.length === 0 && cards.length > 0 && (requireFull ? total !== DECK_SIZE : total > DECK_SIZE)) {
@@ -47,5 +64,5 @@ export function parseDecklist(text: string, { requireFull = true }: { requireFul
     );
   }
 
-  return { cards, total, errors };
+  return { cards, leaderCode, total, errors };
 }

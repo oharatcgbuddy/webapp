@@ -399,7 +399,8 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
         colw = (W - 2 * PAD - 56 - 24) / 2
         for i, m in enumerate(req.matchups):
             if compact:
-                ccol, crow = i % 2, i // 2
+                # Si riempie prima la colonna di sinistra in verticale, poi quella di destra: 1 4 / 2 5 / 3.
+                ccol, crow = divmod(i, m_rows)
                 cx0 = PAD + 28 + ccol * (colw + 24)
                 ry = y + 70 + crow * row_h
                 if ccol == 0 and crow:

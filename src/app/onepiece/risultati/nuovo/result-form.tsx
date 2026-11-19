@@ -124,6 +124,12 @@ export function ResultForm({
           </select>
         </label>
 
+        {tournamentId && (
+          <p className="text-xs">
+            Il negozio che organizza il torneo vedrà il tuo risultato e potrà creare l&apos;immagine. Puoi nasconderlo dal dettaglio del
+            risultato.
+          </p>
+        )}
         {!tournamentId && (
           <>
             <label className={label}>

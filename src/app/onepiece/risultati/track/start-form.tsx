@@ -58,6 +58,12 @@ export function StartForm({
             ))}
           </select>
         </label>
+        {tournamentId && (
+          <p className="text-xs">
+            Il negozio che organizza il torneo vedrà il tuo risultato e potrà creare l&apos;immagine. Puoi nasconderlo dal dettaglio del
+            risultato.
+          </p>
+        )}
         {tournaments.length === 0 && (
           <p className="text-xs">Nessun torneo in corso oggi: puoi usare un torneo libero.</p>
         )}

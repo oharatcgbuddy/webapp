@@ -61,3 +61,21 @@ export async function deleteResult(id: string): Promise<void> {
   await supabase.from("participations").delete().eq("id", id).eq("user_id", auth.user.id);
   redirect("/onepiece/risultati");
 }
+
+// Mostra o nasconde al negozio un proprio risultato su un torneo del negozio (visibility 'inherit' = visibile, 'private' = nascosto).
+export async function setShopVisibility(participationId: string, formData: FormData): Promise<void> {
+  if (!UUID.test(participationId)) return;
+  const visible = formData.get("visible") === "yes";
+
+  const supabase = await createClient();
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth.user) return;
+
+  await supabase
+    .from("participations")
+    .update({ visibility: visible ? "inherit" : "private" })
+    .eq("id", participationId)
+    .eq("user_id", auth.user.id);
+
+  revalidatePath(`/onepiece/risultati/${participationId}`);
+}

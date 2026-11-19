@@ -139,14 +139,15 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
   const { data: p } = await supabase
     .from("participations")
     .select(
-      "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, closed_at, tournaments(title, starts_at, shops(name, logo_url))",
+      "id, user_id, tournament_id, played_on, standalone_label, placement, players_count, wins, losses, closed_at, tournaments(title, starts_at, shops(name, logo_url))",
     )
     .eq("id", id)
-    .eq("user_id", auth.user.id)
     .maybeSingle()
     .overrideTypes<
       {
         id: string;
+        user_id: string;
+        tournament_id: string | null;
         played_on: string;
         standalone_label: string | null;
         placement: number | null;
@@ -160,6 +161,18 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
     >();
   if (!p || !p.closed_at) return fail(404, "Risultato non trovato.");
 
+  // Lo crea il giocatore, oppure un gestore del negozio che organizza il torneo (la RLS gli fa vedere il risultato e la
+  // funzione restituisce il nome solo a lui). Chiunque altro: come se non esistesse.
+  const isOwner = p.user_id === auth.user.id;
+  let playerName: string | null = null;
+  if (!isOwner) {
+    if (!p.tournament_id) return fail(404, "Risultato non trovato.");
+    const { data: players } = await supabase.rpc("shop_tournament_players", { p_tournament: p.tournament_id });
+    const row = (players as { participation_id: string; player_name: string }[] | null)?.find((r) => r.participation_id === id);
+    if (!row) return fail(404, "Risultato non trovato.");
+    playerName = row.player_name;
+  }
+
   const [{ data: details }, { data: matches }, { data: profile }] = await Promise.all([
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", id).maybeSingle(),
     op
@@ -168,7 +181,9 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
       .eq("participation_id", id)
       .order("round", { ascending: true })
       .overrideTypes<RawMatch[], { merge: false }>(),
-    supabase.from("profiles").select("alias, display_name").eq("id", auth.user.id).maybeSingle(),
+    isOwner
+      ? supabase.from("profiles").select("alias, display_name").eq("id", auth.user.id).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   if (!details?.leader_code) return fail(404, "Questo risultato non ha un leader: non posso creare l'immagine.");
 
@@ -200,7 +215,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
     file: `risultato-${p.played_on}`,
     body: {
       kind: "result",
-      title: who?.alias || who?.display_name || "Giocatore",
+      title: playerName ?? (who?.alias || who?.display_name || "Giocatore"),
       leader: { code: leader.card_code, name: leader.name, colors: leader.colors, image_path: leader.image_path },
       cards,
       ...resultLabels(p.losses, p.placement, p.players_count),

@@ -19,6 +19,9 @@ type ResultRow = {
   losses: number;
 };
 
+type PlayerRow = { participation_id: string; player_name: string; manual_result: boolean };
+type PartRow = { id: string; placement: number | null; wins: number; losses: number };
+
 const SLUG = /^[a-z0-9-]{1,80}$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -60,11 +63,58 @@ async function Results({ params }: { params: Promise<{ slug: string; id: string 
 
   const leaderName = new Map((leaders ?? []).map((l) => [l.card_code, l.name]));
 
+  // Risultati registrati dai giocatori stessi su questo torneo (visibili al negozio di default; il giocatore può nasconderli).
+  // Quelli già inseriti a mano e collegati al giocatore non si ripetono: compaiono sotto, tra i risultati salvati.
+  const { data: playerData } = await supabase.rpc("shop_tournament_players", { p_tournament: id });
+  const players = ((playerData ?? []) as PlayerRow[]).filter((r) => !r.manual_result);
+  const ids = players.map((r) => r.participation_id);
+  const [{ data: parts }, { data: dets }] = ids.length
+    ? await Promise.all([
+        supabase.from("participations").select("id, placement, wins, losses").in("id", ids).overrideTypes<PartRow[], { merge: false }>(),
+        op.from("participation_details").select("participation_id, leader_code").in("participation_id", ids),
+      ])
+    : [{ data: [] as PartRow[] }, { data: [] as { participation_id: string; leader_code: string | null }[] }];
+  const partById = new Map((parts ?? []).map((p) => [p.id, p]));
+  const leaderOf = new Map((dets ?? []).map((d) => [d.participation_id, d.leader_code]));
+  const fromPlayers = players
+    .map((r) => ({ ...r, ...partById.get(r.participation_id), leader: leaderOf.get(r.participation_id) ?? null }))
+    .sort((a, b) => (a.placement ?? 9999) - (b.placement ?? 9999));
+
   return (
     <main className="space-y-6 p-4">
       <Link href={`/gestore/${slug}/tornei/${id}`} className="inline-block text-sm font-bold underline">
         ← {t.title}
       </Link>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-black uppercase">Registrati dai giocatori</h2>
+        {fromPlayers.length === 0 ? (
+          <p className="text-sm">
+            Nessun giocatore ha ancora registrato questo torneo. Compariranno qui da soli, con l&apos;immagine pronta, a meno che non
+            li abbiano nascosti.
+          </p>
+        ) : (
+          <ul className="space-y-4">
+            {fromPlayers.map((r) => (
+              <li key={r.participation_id} className="space-y-2">
+                <div className="brutal-card p-3">
+                  <p className="font-black leading-tight">{r.player_name}</p>
+                  {r.leader && (
+                    <p className="text-sm">
+                      {r.leader} · {leaderName.get(r.leader) ?? ""}
+                    </p>
+                  )}
+                  <p className="text-xs font-bold">
+                    {r.placement ? `${r.placement}° · ` : ""}
+                    {(r.wins ?? 0)}V · {(r.losses ?? 0)}S
+                  </p>
+                </div>
+                <ImageActions kind="risultato" id={r.participation_id} title={`Immagine di ${r.player_name}`} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="space-y-3">
         <h2 className="text-lg font-black uppercase">Risultati salvati</h2>
@@ -100,7 +150,7 @@ async function Results({ params }: { params: Promise<{ slug: string; id: string 
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-black uppercase">Nuovo risultato</h2>
+        <h2 className="text-lg font-black uppercase">Nuovo risultato (per chi non usa l&apos;app)</h2>
         <ResultForm slug={slug} tournamentId={id} leaders={leaders ?? []} />
       </section>
     </main>

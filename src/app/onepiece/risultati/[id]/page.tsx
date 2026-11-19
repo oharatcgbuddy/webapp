@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ImageActions } from "@/components/image-actions";
 import { ChangeDeck, type DeckOption } from "../change-deck";
 import { ChangeShop, type ShopOption } from "../change-shop";
+import { ShopVisibility } from "../shop-visibility";
 import { DeleteButton } from "./delete-button";
 
 type Detail = {
@@ -19,7 +20,8 @@ type Detail = {
   losses: number;
   notes: string | null;
   closed_at: string | null;
-  tournaments: { id: string; title: string } | null;
+  visibility: "inherit" | "private";
+  tournaments: { id: string; title: string; shops: { name: string } | null } | null;
 };
 
 type MatchRow = {
@@ -54,7 +56,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
     supabase
       .from("participations")
       .select(
-        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, notes, closed_at, tournaments(id, title), tcgs!inner(slug)",
+        "id, user_id, played_on, standalone_label, placement, players_count, wins, losses, notes, closed_at, visibility, tournaments(id, title, shops(name)), tcgs!inner(slug)",
       )
       .eq("tcgs.slug", "onepiece")
       .eq("id", id)
@@ -205,6 +207,10 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
 
       {isOwner && !data.tournaments && (
         <ChangeShop participationId={data.id} currentShopId={currentShopId} shops={shopOptions} />
+      )}
+
+      {isOwner && data.tournaments?.shops && (
+        <ShopVisibility participationId={data.id} shopName={data.tournaments.shops.name} hidden={data.visibility === "private"} />
       )}
 
       {isOwner && details?.leader_code && <ImageActions kind="risultato" id={data.id} title="Crea immagine del risultato" />}

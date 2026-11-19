@@ -129,14 +129,27 @@ export function LeaderPicker({
         </div>
       )}
 
-      <input
-        type="search"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        placeholder="Cerca per nome o codice"
-        aria-label={`Cerca ${label}`}
-        className={field}
-      />
+      <div className="flex gap-2">
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Cerca per nome o codice"
+          aria-label={`Cerca ${label}`}
+          className={field}
+        />
+        <button
+          type="button"
+          onClick={() => {
+            setQuery("");
+            setShowAllMeta(false);
+          }}
+          disabled={!query && !showAllMeta}
+          className="shrink-0 border-[3px] border-ink bg-white px-3 text-sm font-bold disabled:opacity-40"
+        >
+          Reset filtri
+        </button>
+      </div>
 
       {!q && meta.length > 0 && (
         <div className="space-y-1">

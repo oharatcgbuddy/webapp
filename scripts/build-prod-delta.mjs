@@ -21,6 +21,7 @@ const DEFAULT_VERSIONS = [
   "20261118120500", // matches_bye_no_draw
   "20261118170000", // participation_shop
   "20261118180000", // claim_community_tournaments
+  "20261119161337", // shop_bandai_organizer
 ];
 // Se la condizione è vera la migrazione è già applicata a mano: si registra soltanto.
 const ALREADY = {

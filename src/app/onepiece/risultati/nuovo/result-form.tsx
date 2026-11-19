@@ -5,7 +5,7 @@ import { saveResult, type ActionState } from "./actions";
 import { LeaderPicker, type LeaderOpt } from "../track/leader-picker";
 
 type TournamentOpt = { id: string; label: string };
-type DeckOpt = { id: string; name: string };
+type DeckOpt = { id: string; name: string; leader_code: string | null };
 type ShopOpt = { id: string; label: string };
 
 // Un round come nel track in diretta: leader avversario, dado, esito, nota oppure BYE.
@@ -76,6 +76,8 @@ export function ResultForm({
   const [deckChoice, setDeckChoice] = useState("");
   const [matches, setMatches] = useState<MatchRow[]>([]);
   const nextKey = useRef(0);
+  // Un mazzo salvato decide il leader: il selettore compare solo senza mazzo o con una decklist nuova.
+  const savedDeck = decks.find((d) => d.id === deckChoice && d.leader_code) ?? null;
 
   const update = (key: number, patch: Partial<MatchRow>) =>
     setMatches((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -167,7 +169,13 @@ export function ResultForm({
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        <LeaderPicker name="leader_code" label="Il tuo leader" leaders={leaders} />
+        {savedDeck ? (
+          <p className="border-[3px] border-ink bg-brand-yellow p-3 text-sm font-bold">
+            Leader del mazzo: {savedDeck.leader_code} · {leaders.find((l) => l.card_code === savedDeck.leader_code)?.name ?? ""}
+          </p>
+        ) : (
+          <LeaderPicker name="leader_code" label="Il tuo leader" leaders={leaders} />
+        )}
 
         <label className={label}>
           Decklist
@@ -181,6 +189,7 @@ export function ResultForm({
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
+                {d.leader_code ? ` · ${d.leader_code}` : ""}
               </option>
             ))}
             <option value="new">Incolla una nuova decklist…</option>
@@ -202,9 +211,9 @@ export function ResultForm({
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        <h2 className="font-black uppercase">Round (facoltativi)</h2>
+        <h2 className="font-black uppercase">Round</h2>
         <p className="text-xs">
-          Registrali come nel track in diretta: leader avversario, dado ed esito. Servono alle statistiche e alle immagini.
+          Registrali come nel track in diretta: leader avversario, dado ed esito. Vittorie e sconfitte si calcolano da qui.
         </p>
 
         {matches.map((m, i) => (
@@ -283,20 +292,9 @@ export function ResultForm({
         )}
         <input type="hidden" name="matches" value={JSON.stringify(payload)} />
 
-        {matches.length > 0 ? (
-          <p className="inline-block border-2 border-ink bg-brand-yellow px-2 py-1 text-sm font-bold">
-            Record dai round: {wins}V · {losses}S
-          </p>
-        ) : (
-          <div className="grid grid-cols-2 gap-2">
-            {(["wins", "losses"] as const).map((k) => (
-              <label key={k} className={label}>
-                {k === "wins" ? "Vitt." : "Sconf."}
-                <input type="number" inputMode="numeric" name={k} min={0} max={99} defaultValue={0} className={field} />
-              </label>
-            ))}
-          </div>
-        )}
+        <p className="inline-block border-2 border-ink bg-brand-yellow px-2 py-1 text-sm font-bold">
+          Record dai round: {wins}V · {losses}S
+        </p>
       </section>
 
       <section className="brutal-card space-y-3 p-4">

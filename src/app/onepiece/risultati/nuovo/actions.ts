@@ -79,19 +79,16 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const tournamentId = text(fd, "tournament_id", 40);
   const label = text(fd, "standalone_label", 80);
   let playedOn = text(fd, "played_on", 10);
-  const leaderCode = text(fd, "leader_code", 20);
-  const typedWins = int(fd, "wins", 0, 99);
-  const typedLosses = int(fd, "losses", 0, 99);
+  let leaderCode = text(fd, "leader_code", 20);
   const placement = int(fd, "placement", 1, 9999);
   const playersCount = int(fd, "players_count", 1, 9999);
   const notes = text(fd, "notes", 1000) || null;
   const matches = parseMatches(text(fd, "matches", 12000));
   const deckChoice = text(fd, "deck_choice", 40);
 
-  if ([typedWins, typedLosses, placement, playersCount].some((n) => Number.isNaN(n))) {
-    return { error: "Controlla i numeri inseriti (vittorie, sconfitte, piazzamento)." };
+  if ([placement, playersCount].some((n) => Number.isNaN(n))) {
+    return { error: "Controlla piazzamento e numero di giocatori." };
   }
-  if (!leaderCode) return { error: "Scegli il tuo leader." };
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
   if (matches === null) return { error: "Match non validi." };
@@ -100,11 +97,10 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     return { error: "Il piazzamento non può superare il numero di giocatori." };
   }
 
-  // Come nella chiusura del track: se ci sono i round, il record si calcola da loro (il BYE conta come vinto);
-  // altrimenti valgono le vittorie e le sconfitte indicate a mano.
+  // Come nella chiusura del track: il record si calcola sempre dai round (il BYE conta come vinto).
   const count = (r: MatchInput["result"]) => matches.filter((m) => m.result === r).length;
-  const wins = matches.length > 0 ? count("win") + count("bye") : (typedWins ?? 0);
-  const losses = matches.length > 0 ? count("loss") : (typedLosses ?? 0);
+  const wins = count("win") + count("bye");
+  const losses = count("loss");
 
   const op = supabase.schema("onepiece");
 
@@ -120,13 +116,15 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     if (!UUID.test(deckChoice)) return { error: "Mazzo non valido." };
     const { data: d } = await op
       .from("decks")
-      .select("id")
+      .select("id, leader_code")
       .eq("id", deckChoice)
       .eq("owner_id", auth.user.id)
       .maybeSingle();
-    if (!d) return { error: "Mazzo non trovato." };
+    if (!d?.leader_code) return { error: "Mazzo non trovato." };
     existingDeckId = d.id;
+    leaderCode = d.leader_code; // il mazzo salvato decide il leader, come in "Cambia mazzo"
   }
+  if (!leaderCode) return { error: "Scegli il tuo leader." };
 
   // Locale facoltativo per i tornei liberi (nome e logo nelle immagini): deve essere un locale visibile.
   const shopChoice = tournamentId ? "" : text(fd, "shop_id", 40);

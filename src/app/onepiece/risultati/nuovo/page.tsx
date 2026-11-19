@@ -39,7 +39,7 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
     supabase
       .schema("onepiece")
       .from("decks")
-      .select("id, name")
+      .select("id, name, leader_code")
       .eq("owner_id", uid)
       .order("created_at", { ascending: false })
       .limit(50),

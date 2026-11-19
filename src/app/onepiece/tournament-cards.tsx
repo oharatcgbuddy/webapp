@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { ShopLogo } from "@/components/shop-logo";
 import { distanceKm, formatKm, type LatLng } from "@/lib/geo";
 
 export type TournamentItem = {
@@ -11,7 +12,14 @@ export type TournamentItem = {
   entry_fee_cents: number | null;
   max_players: number | null;
   format_slug: string | null;
-  shops: { name: string; city: string | null; province: string | null; lat: number | null; lng: number | null } | null;
+  shops: {
+    name: string;
+    city: string | null;
+    province: string | null;
+    lat: number | null;
+    lng: number | null;
+    logo_url: string | null;
+  } | null;
 };
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
@@ -144,15 +152,20 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
         <ul className="space-y-4">
           {rows.map(({ t, km }) => (
             <li key={t.id} className="brutal-card p-4">
-              <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(t.starts_at))}</p>
-              <h2 className="text-xl font-black leading-tight">
-                <Link href={`/onepiece/tornei/${t.id}`} className="underline decoration-[3px]">
-                  {t.title}
-                </Link>
-              </h2>
-              <p className="text-sm">
-                {t.shops ? `${t.shops.name}${t.shops.city ? ` · ${t.shops.city}` : ""}` : "Torneo libero"}
-              </p>
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(t.starts_at))}</p>
+                  <h2 className="text-xl font-black leading-tight">
+                    <Link href={`/onepiece/tornei/${t.id}`} className="underline decoration-[3px]">
+                      {t.title}
+                    </Link>
+                  </h2>
+                  <p className="text-sm">
+                    {t.shops ? `${t.shops.name}${t.shops.city ? ` · ${t.shops.city}` : ""}` : "Torneo libero"}
+                  </p>
+                </div>
+                {t.shops && <ShopLogo name={t.shops.name} logoUrl={t.shops.logo_url} size={56} />}
+              </div>
               <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
                 {km !== null && (
                   <span className="border-2 border-ink bg-brand-pink px-2 py-1">{formatKm(km)}</span>

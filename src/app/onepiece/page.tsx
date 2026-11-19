@@ -18,7 +18,7 @@ async function TournamentList({
     .from("tournaments")
     .select(
       `id, title, starts_at, entry_fee_cents, max_players, format_slug,
-       shops${province ? "!inner" : ""} (name, city, province, lat, lng),
+       shops${province ? "!inner" : ""} (name, city, province, lat, lng, logo_url),
        tcgs!inner (slug)`,
     )
     .eq("tcgs.slug", "onepiece")

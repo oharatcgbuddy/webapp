@@ -42,6 +42,23 @@ textarea {
   font-size: 16px;
 }
 
+/* Campi data e ora: su iOS hanno una larghezza propria e escono dal riquadro; con appearance-none si adattano allo spazio
+   disponibile (l'altezza minima evita che il campo vuoto si schiacci). */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 3rem;
+  appearance: none;
+  -webkit-appearance: none;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.5em;
+}
+
 /* Schermata di caricamento della PWA (componente AppSplash): solo quando l'app è aperta dall'icona. */
 .app-splash {
   display: none;

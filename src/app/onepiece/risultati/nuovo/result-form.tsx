@@ -176,19 +176,6 @@ export function ResultForm({
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        {savedDeck ? (
-          <p className="border-[3px] border-ink bg-brand-yellow p-3 text-sm font-bold">
-            Leader del mazzo: {savedDeck.leader_code} · {leaders.find((l) => l.card_code === savedDeck.leader_code)?.name ?? ""}
-          </p>
-        ) : (
-          <LeaderPicker
-            name="leader_code"
-            label={deckChoice === "new" ? "Il tuo leader (se non è nella lista)" : "Il tuo leader"}
-            leaders={leaders}
-            required={deckChoice !== "new"}
-          />
-        )}
-
         <label className={label}>
           Decklist
           <select
@@ -219,6 +206,19 @@ export function ResultForm({
             />
             <span className="mt-1 block text-xs font-normal normal-case">Una carta per riga. 50 carte, più il leader se vuoi includerlo (lo riconosco da lì).</span>
           </label>
+        )}
+
+        {savedDeck ? (
+          <p className="border-[3px] border-ink bg-brand-yellow p-3 text-sm font-bold">
+            Leader del mazzo: {savedDeck.leader_code} · {leaders.find((l) => l.card_code === savedDeck.leader_code)?.name ?? ""}
+          </p>
+        ) : (
+          <LeaderPicker
+            name="leader_code"
+            label={deckChoice === "new" ? "Il tuo leader (se non è nella lista)" : "Il tuo leader"}
+            leaders={leaders}
+            required={deckChoice !== "new"}
+          />
         )}
       </section>
 

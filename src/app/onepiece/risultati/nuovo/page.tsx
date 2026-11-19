@@ -46,7 +46,18 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
     supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
   ]);
 
-  const options = (tournaments ?? []).map((t) => ({
+  const rows = [...(tournaments ?? [])];
+  // Il torneo da cui si arriva (?torneo=) va sempre in elenco, anche se non è già iniziato o è più vecchio di 90 giorni.
+  if (initial && !rows.some((t) => t.id === initial)) {
+    const { data: t } = await supabase
+      .from("tournaments")
+      .select("id, title, starts_at")
+      .eq("id", initial)
+      .neq("status", "cancelled")
+      .maybeSingle();
+    if (t) rows.unshift(t);
+  }
+  const options = rows.map((t) => ({
     id: t.id,
     label: `${dateFmt.format(new Date(t.starts_at))} · ${t.title}`,
   }));

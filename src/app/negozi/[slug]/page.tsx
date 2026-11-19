@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
+import { shopLogoUrl } from "@/lib/shop-logo";
 import { toggleFavorite } from "./actions";
 
 type Shop = {
@@ -16,6 +18,7 @@ type Shop = {
   phone: string | null;
   website: string | null;
   social: Record<string, string> | null;
+  logo_url: string | null;
 };
 
 type TournamentRow = {
@@ -72,7 +75,7 @@ async function ShopDetail({ params }: { params: Promise<{ slug: string }> }) {
   const supabase = await createClient();
   const { data: shop, error } = await supabase
     .from("shops")
-    .select("id, name, description, address, city, province, phone, website, social")
+    .select("id, name, description, address, city, province, phone, website, social, logo_url")
     .eq("slug", slug)
     .maybeSingle()
     .overrideTypes<Shop, { merge: false }>();
@@ -120,6 +123,7 @@ async function ShopDetail({ params }: { params: Promise<{ slug: string }> }) {
   ]);
 
   const isFavorite = !!fav.data;
+  const logo = shopLogoUrl(shop.logo_url);
   const website = safeUrl(shop.website);
   const place = [shop.address, [shop.city, shop.province].filter(Boolean).join(" ")]
     .filter(Boolean)
@@ -131,9 +135,23 @@ async function ShopDetail({ params }: { params: Promise<{ slug: string }> }) {
   return (
     <main className="space-y-4 p-4">
       <section className="brutal-card space-y-2 p-4">
-        <h2 className="text-2xl font-black leading-tight">{shop.name}</h2>
+        <div className="flex items-center gap-3">
+          {logo && (
+            <Image
+              unoptimized
+              src={logo}
+              alt={`Logo di ${shop.name}`}
+              width={72}
+              height={72}
+              className="size-[72px] shrink-0 rounded-full border-[3px] border-ink object-cover"
+            />
+          )}
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-2xl font-black leading-tight">{shop.name}</h2>
+            {place && <p className="text-sm font-bold">{place}</p>}
+          </div>
+        </div>
         {shop.description && <p className="whitespace-pre-line">{shop.description}</p>}
-        {place && <p className="text-sm font-bold">{place}</p>}
         <p className="flex flex-wrap gap-x-4 text-sm">
           {shop.phone && (
             <a href={`tel:${shop.phone}`} className="underline">

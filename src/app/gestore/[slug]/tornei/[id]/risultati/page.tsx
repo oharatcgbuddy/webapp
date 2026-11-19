@@ -90,26 +90,33 @@ async function Results({ params }: { params: Promise<{ slug: string; id: string 
         <h2 className="text-lg font-black uppercase">Registrati dai giocatori</h2>
         {fromPlayers.length === 0 ? (
           <p className="text-sm">
-            Nessun giocatore ha ancora registrato questo torneo. Compariranno qui da soli, con l&apos;immagine pronta, a meno che non
+            Nessun giocatore ha ancora registrato questo torneo. Compariranno qui da soli, con il dettaglio e le immagini, a meno che non
             li abbiano nascosti.
           </p>
         ) : (
           <ul className="space-y-4">
             {fromPlayers.map((r) => (
-              <li key={r.participation_id} className="space-y-2">
-                <div className="brutal-card p-3">
-                  <p className="font-black leading-tight">{r.player_name}</p>
-                  {r.leader && (
-                    <p className="text-sm">
-                      {r.leader} · {leaderName.get(r.leader) ?? ""}
+              <li key={r.participation_id}>
+                <Link
+                  href={`/gestore/${slug}/tornei/${id}/risultati/${r.participation_id}`}
+                  className="brutal-card flex items-center justify-between gap-2 p-3"
+                >
+                  <div>
+                    <p className="font-black leading-tight">{r.player_name}</p>
+                    {r.leader && (
+                      <p className="text-sm">
+                        {r.leader} · {leaderName.get(r.leader) ?? ""}
+                      </p>
+                    )}
+                    <p className="text-xs font-bold">
+                      {r.placement ? `${r.placement}° · ` : ""}
+                      {r.wins ?? 0}V · {r.losses ?? 0}S
                     </p>
-                  )}
-                  <p className="text-xs font-bold">
-                    {r.placement ? `${r.placement}° · ` : ""}
-                    {(r.wins ?? 0)}V · {(r.losses ?? 0)}S
-                  </p>
-                </div>
-                <ImageActions kind="risultato" id={r.participation_id} title={`Immagine di ${r.player_name}`} />
+                  </div>
+                  <span aria-hidden className="text-xl font-black">
+                    →
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

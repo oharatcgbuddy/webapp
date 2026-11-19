@@ -74,6 +74,7 @@ class Matchup(BaseModel):
     opponent_colors: list[str] = Field(default_factory=list, max_length=4)
     opponent_image_path: str | None = Field(default=None, max_length=100)
     dice_won: bool | None = None
+    went_first: bool | None = None  # True = primo, False = secondo
     result: Literal["win", "loss", "bye"]  # bye = turno di riposo: conta come vinto, senza dado
 
 
@@ -250,6 +251,12 @@ def die(d, x, y, size, fill):
     for fx, fy in ((0.28, 0.28), (0.72, 0.28), (0.5, 0.5), (0.28, 0.72), (0.72, 0.72)):
         cx, cy = x + size * fx, y + size * fy
         d.ellipse((S(cx - r), S(cy - r), S(cx + r), S(cy + r)), fill=WHITE, outline=INK, width=S(1.2))
+
+
+def turn_box(d, x, y, size, first):
+    """Riquadro con "1°" (giocato per primo) o "2°" (per secondo), della stessa misura del dado."""
+    brutal(d, (x, y, x + size, y + size), fill=WHITE, bw=3, sh=3)
+    text(d, (x + size / 2, y + size / 2 + 1), "1°" if first else "2°", font(round(size * 0.5), 700), anchor="mm")
 
 
 def draw_all(req, images, app_logo, shop_logo, total_h=None):
@@ -459,12 +466,14 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                 dot_r = 7
                 dots = m.opponent_colors[:4] if m.result != "bye" else []
                 dots_w = len(dots) * (dot_r * 2 + 6) + (6 if dots else 0)
-                name_f, name = shrink(d, name, 21, 700, colw - 82 - 36 - 12 - 96 - 8 - dots_w, 15)
+                name_f, name = shrink(d, name, 21, 700, colw - 82 - 36 - 12 - 96 - 8 - dots_w - (38 if m.went_first is not None else 0), 15)
                 text(d, (cx0 + 82, ry + 24), name, name_f, anchor="lm")
                 if dots:
                     color_dots(d, cx0 + 82 + text_w(d, name, name_f) + 10, ry + 24 - dot_r, dots, r=dot_r)
                 if m.dice_won is not None and m.result != "bye":
                     die(d, cx0 + colw - 96 - 12 - 32, ry + 7, 32, GREEN if m.dice_won else RED)
+                if m.went_first is not None and m.result != "bye":
+                    turn_box(d, cx0 + colw - 96 - 12 - 32 - 38, ry + 7, 32, m.went_first)
                 label, fill = verdict[m.result]
                 pill(d, cx0 + colw - 96, ry + 4, label, font(20, 700), fill, INK, pad_x=10, h=38, min_w=96)
             else:
@@ -477,11 +486,13 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                     frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
                 nx = PAD + 140
                 name = "Nessun avversario" if m.result == "bye" else (m.opponent_name or m.opponent_code or "Avversario n/d")
-                name_f, shown = shrink(d, name, 26, 700, 380, 18)
+                name_f, shown = shrink(d, name, 26, 700, 380 - (46 if m.went_first is not None else 0), 18)
                 text(d, (nx, ry + 26), shown, name_f, anchor="lm")
                 color_dots(d, nx + text_w(d, shown, name_f) + 14, ry + 16, m.opponent_colors, r=9)
                 if m.dice_won is not None and m.result != "bye":
                     die(d, W - PAD - 28 - 118 - 24 - 40, ry + 5, 40, GREEN if m.dice_won else RED)
+                if m.went_first is not None and m.result != "bye":
+                    turn_box(d, W - PAD - 28 - 118 - 24 - 40 - 46, ry + 5, 40, m.went_first)
                 label, fill = verdict[m.result]
                 pill(d, W - PAD - 28 - 118, ry + 4, label, font(22, 700), fill, INK, pad_x=20, h=44, min_w=118)
         y += match_h

@@ -64,6 +64,7 @@ type RawMatch = {
   opponent_name: string | null;
   won_dice?: boolean | null;
   dice_won?: boolean | null;
+  went_first?: boolean | null;
   result: string;
 };
 
@@ -78,6 +79,7 @@ function toMatchups(raw: RawMatch[], leaders: Map<string, LeaderRow>): ImageMatc
       opponent_name: l?.name ?? m.opponent_name,
       opponent_colors: l?.colors ?? [],
       opponent_image_path: l?.image_path ?? null,
+      went_first: result === "bye" ? null : (m.went_first ?? null),
       dice_won: result === "bye" ? null : (m.won_dice ?? m.dice_won ?? null),
       result,
     };
@@ -177,7 +179,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", id).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, opponent_name, won_dice, result")
+      .select("round, opponent_leader_code, opponent_name, won_dice, went_first, result")
       .eq("participation_id", id)
       .order("round", { ascending: true })
       .overrideTypes<RawMatch[], { merge: false }>(),

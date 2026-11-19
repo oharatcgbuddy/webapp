@@ -35,6 +35,7 @@ export type ImageMatchup = {
   opponent_colors: string[];
   opponent_image_path: string | null;
   dice_won: boolean | null;
+  went_first?: boolean | null;
   result: "win" | "loss" | "bye";
 };
 

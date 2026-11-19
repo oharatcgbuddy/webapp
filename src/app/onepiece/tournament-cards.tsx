@@ -84,30 +84,30 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
   return (
     <>
       <div className="brutal-card space-y-2 p-3">
-        <div className="flex items-end gap-2">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setDay(day === dayOf(new Date()) ? "" : dayOf(new Date()))}
             aria-pressed={day !== "" && day === dayOf(new Date())}
-            className={`brutal-btn ${day !== "" && day === dayOf(new Date()) ? "bg-brand-yellow" : "bg-white"}`}
+            className={`brutal-btn flex-1 ${day !== "" && day === dayOf(new Date()) ? "bg-brand-yellow" : "bg-white"}`}
           >
             Oggi
           </button>
-          <label className="block flex-1 text-sm font-bold">
-            Data
-            <input
-              type="date"
-              value={day}
-              onChange={(e) => setDay(e.target.value)}
-              className="mt-1 block w-full border-[3px] border-ink bg-white px-2 py-2"
-            />
-          </label>
           {day && (
-            <button type="button" onClick={() => setDay("")} className="brutal-btn bg-white">
-              Tutte
+            <button type="button" onClick={() => setDay("")} className="brutal-btn flex-1 bg-white">
+              Tutte le date
             </button>
           )}
         </div>
+        <label className="block min-w-0 text-sm font-bold">
+          Data
+          <input
+            type="date"
+            value={day}
+            onChange={(e) => setDay(e.target.value)}
+            className="mt-1 block w-full min-w-0 max-w-full appearance-none border-[3px] border-ink bg-white px-2 py-2"
+          />
+        </label>
         <button
           type="button"
           onClick={locate}

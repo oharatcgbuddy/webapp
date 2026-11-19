@@ -50,11 +50,10 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
 
   const tournamentId = text(fd, "tournament_id", 40);
   const label = text(fd, "standalone_label", 80);
-  const leaderCode = text(fd, "leader_code", 20);
+  let leaderCode = text(fd, "leader_code", 20);
   const deckChoice = text(fd, "deck_choice", 40);
   const deckText = text(fd, "decklist", 4000);
 
-  if (!leaderCode) return { error: "Scegli il tuo leader." };
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
 
@@ -63,20 +62,30 @@ export async function startTrack(_prev: ActionState, fd: FormData): Promise<Acti
   let existingDeckId: string | null = null;
   let newDeck: ReturnType<typeof parseDecklist> | null = null;
   if (deckChoice === "new") {
-    newDeck = parseDecklist(deckText);
+    // La lista può includere il leader: se c'è, è quello del mazzo.
+    const { data: ls } = await op.from("leaders").select("card_code");
+    newDeck = parseDecklist(deckText, { leaderCodes: new Set((ls ?? []).map((l) => l.card_code)) });
     if (newDeck.errors.length > 0) return { error: newDeck.errors[0] };
     if (newDeck.cards.length === 0) return { error: "Incolla una decklist valida o scegli un mazzo salvato." };
+    if (newDeck.leaderCode) {
+      if (leaderCode && leaderCode !== newDeck.leaderCode) {
+        return { error: `La decklist ha il leader ${newDeck.leaderCode}, diverso da ${leaderCode}.` };
+      }
+      leaderCode = newDeck.leaderCode;
+    }
   } else if (deckChoice) {
     if (!UUID.test(deckChoice)) return { error: "Mazzo non valido." };
     const { data: d } = await op
       .from("decks")
-      .select("id")
+      .select("id, leader_code")
       .eq("id", deckChoice)
       .eq("owner_id", user.id)
       .maybeSingle();
-    if (!d) return { error: "Mazzo non trovato." };
+    if (!d?.leader_code) return { error: "Mazzo non trovato." };
     existingDeckId = d.id;
+    leaderCode = d.leader_code; // il mazzo salvato decide il leader, come in "Cambia mazzo"
   }
+  if (!leaderCode) return { error: "Scegli il tuo leader o incolla una decklist che lo include." };
 
   if (tournamentId) {
     const { data: t } = await supabase.from("tournaments").select("id").eq("id", tournamentId).maybeSingle();

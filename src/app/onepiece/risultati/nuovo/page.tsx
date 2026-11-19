@@ -18,7 +18,11 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
   const since = new Date(nowDate.getTime() - 90 * 24 * 3600 * 1000).toISOString();
   const now = nowDate.toISOString();
 
-  const [{ data: tournaments }, { data: leaders }] = await Promise.all([
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth.user?.id;
+  if (!uid) return <main className="p-4">Accedi per inserire un risultato.</main>;
+
+  const [{ data: tournaments }, { data: leaders }, { data: decks }, { data: shops }] = await Promise.all([
     supabase
       .from("tournaments")
       .select("id, title, starts_at")
@@ -32,6 +36,14 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
       .from("leaders")
       .select("card_code, name, image_path, meta_position")
       .order("card_code"),
+    supabase
+      .schema("onepiece")
+      .from("decks")
+      .select("id, name, leader_code")
+      .eq("owner_id", uid)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
   ]);
 
   const options = (tournaments ?? []).map((t) => ({
@@ -43,6 +55,8 @@ async function FormLoader({ searchParams }: { searchParams: Promise<{ torneo?: s
     <ResultForm
       tournaments={options}
       leaders={leaders ?? []}
+      decks={decks ?? []}
+      shops={(shops ?? []).map((s) => ({ id: s.id, label: s.city ? `${s.name} (${s.city})` : s.name }))}
       initialTournament={options.some((o) => o.id === initial) ? initial : ""}
       today={now.slice(0, 10)}
     />

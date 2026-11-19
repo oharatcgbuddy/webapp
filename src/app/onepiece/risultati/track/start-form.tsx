@@ -5,7 +5,7 @@ import { startTrack, type ActionState } from "./actions";
 import { LeaderPicker, type LeaderOpt } from "./leader-picker";
 
 type TournamentOpt = { id: string; label: string };
-type DeckOpt = { id: string; name: string };
+type DeckOpt = { id: string; name: string; leader_code: string | null };
 type ShopOpt = { id: string; label: string };
 
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
@@ -25,6 +25,8 @@ export function StartForm({
   const [state, action, pending] = useActionState<ActionState, FormData>(startTrack, {});
   const [tournamentId, setTournamentId] = useState("");
   const [deckChoice, setDeckChoice] = useState("");
+  // Un mazzo salvato decide il leader: il selettore compare solo senza mazzo o con una decklist nuova.
+  const savedDeck = decks.find((d) => d.id === deckChoice && d.leader_code) ?? null;
 
   if (leaders.length === 0) {
     return (
@@ -98,7 +100,18 @@ export function StartForm({
       </section>
 
       <section className="brutal-card space-y-3 p-4">
-        <LeaderPicker name="leader_code" label="Il tuo leader" leaders={leaders} />
+        {savedDeck ? (
+          <p className="border-[3px] border-ink bg-brand-yellow p-3 text-sm font-bold">
+            Leader del mazzo: {savedDeck.leader_code} · {leaders.find((l) => l.card_code === savedDeck.leader_code)?.name ?? ""}
+          </p>
+        ) : (
+          <LeaderPicker
+            name="leader_code"
+            label={deckChoice === "new" ? "Il tuo leader (se non è nella lista)" : "Il tuo leader"}
+            leaders={leaders}
+            required={deckChoice !== "new"}
+          />
+        )}
 
         <label className={label}>
           Decklist
@@ -112,6 +125,7 @@ export function StartForm({
             {decks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
+                {d.leader_code ? ` · ${d.leader_code}` : ""}
               </option>
             ))}
             <option value="new">Incolla una nuova decklist…</option>
@@ -128,7 +142,7 @@ export function StartForm({
               placeholder={"4x OP01-013\n4x OP01-016\n..."}
             />
             <span className="mt-1 block text-xs font-normal normal-case">
-              Una carta per riga. 50 carte, leader escluso.
+              Una carta per riga. 50 carte, più il leader se vuoi includerlo (lo riconosco da lì).
             </span>
           </label>
         )}

@@ -25,34 +25,43 @@ function int(fd: FormData, key: string, min: number, max: number): number | null
   return Number.isInteger(n) && n >= min && n <= max ? n : Number.NaN;
 }
 
+const MAX_ROUNDS = 30; // come nel track in diretta
+
 type MatchInput = {
   result: "win" | "loss" | "bye";
-  on_play: boolean | null;
-  opponent_name: string | null;
+  opponent_leader_code: string | null;
+  won_dice: boolean | null;
   notes: string | null;
 };
 
-// null = formato non valido; { error } = una nota non ammessa (con il motivo da mostrare).
+// Stesse regole di addRound nel track: il BYE non ha avversario né dado, gli altri round sì.
+// null = formato non valido; { error } = round incompleto o nota non ammessa (con il motivo da mostrare).
 function parseMatches(raw: string): MatchInput[] | { error: string } | null {
   if (!raw) return [];
   try {
     const arr: unknown = JSON.parse(raw);
-    if (!Array.isArray(arr) || arr.length > 20) return null;
+    if (!Array.isArray(arr) || arr.length > MAX_ROUNDS) return null;
     const out: MatchInput[] = [];
     for (const item of arr) {
       if (typeof item !== "object" || item === null) return null;
       const m = item as Record<string, unknown>;
+      const n = out.length + 1;
+      if (m.result === "") return { error: `Round ${n}: indica l'esito.` }; // round aggiunto ma non compilato
       if (m.result !== "win" && m.result !== "loss" && m.result !== "bye") return null;
       const note = cleanNote(typeof m.notes === "string" ? m.notes.slice(0, 1000) : "");
-      if ("error" in note) return { error: `Round ${out.length + 1}: ${note.error}` };
+      if ("error" in note) return { error: `Round ${n}: ${note.error}` };
+      if (m.result === "bye") {
+        out.push({ result: "bye", opponent_leader_code: null, won_dice: null, notes: note.value });
+        continue;
+      }
+      const opponent = typeof m.opponent_leader_code === "string" ? m.opponent_leader_code.trim().slice(0, 20) : "";
+      if (!opponent) return { error: `Round ${n}: scegli il leader avversario.` };
+      if (m.dice !== "won" && m.dice !== "lost") return { error: `Round ${n}: indica se hai vinto il dado.` };
       out.push({
-        notes: note.value,
         result: m.result,
-        on_play: m.result !== "bye" && m.on_play === "yes" ? true : m.result !== "bye" && m.on_play === "no" ? false : null,
-        opponent_name:
-          m.result !== "bye" && typeof m.opponent_name === "string" && m.opponent_name.trim()
-            ? m.opponent_name.trim().slice(0, 60)
-            : null,
+        opponent_leader_code: opponent,
+        won_dice: m.dice === "won",
+        notes: note.value,
       });
     }
     return out;
@@ -70,16 +79,15 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
   const tournamentId = text(fd, "tournament_id", 40);
   const label = text(fd, "standalone_label", 80);
   let playedOn = text(fd, "played_on", 10);
-  const leaderCode = text(fd, "leader_code", 20) || null;
-  const wins = int(fd, "wins", 0, 99);
-  const losses = int(fd, "losses", 0, 99);
+  let leaderCode = text(fd, "leader_code", 20);
   const placement = int(fd, "placement", 1, 9999);
   const playersCount = int(fd, "players_count", 1, 9999);
   const notes = text(fd, "notes", 1000) || null;
-  const matches = parseMatches(text(fd, "matches", 4000));
+  const matches = parseMatches(text(fd, "matches", 12000));
+  const deckChoice = text(fd, "deck_choice", 40);
 
-  if ([wins, losses, placement, playersCount].some((n) => Number.isNaN(n))) {
-    return { error: "Controlla i numeri inseriti (vittorie, sconfitte, piazzamento)." };
+  if ([placement, playersCount].some((n) => Number.isNaN(n))) {
+    return { error: "Controlla piazzamento e numero di giocatori." };
   }
   if (tournamentId && !UUID.test(tournamentId)) return { error: "Torneo non valido." };
   if (!tournamentId && !label) return { error: "Scegli un torneo o scrivi il nome del torneo libero." };
@@ -89,10 +97,50 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     return { error: "Il piazzamento non può superare il numero di giocatori." };
   }
 
+  // Come nella chiusura del track: il record si calcola sempre dai round (il BYE conta come vinto).
+  const count = (r: MatchInput["result"]) => matches.filter((m) => m.result === r).length;
+  const wins = count("win") + count("bye");
+  const losses = count("loss");
+
+  const op = supabase.schema("onepiece");
+
+  // Mazzo: uno già salvato oppure una nuova decklist incollata, come all'avvio del track.
   const deckText = text(fd, "decklist", 4000);
-  const deck = deckText ? parseDecklist(deckText) : null;
-  if (deck && deck.errors.length > 0) return { error: deck.errors[0] };
-  if (deck && deck.cards.length === 0) return { error: "La decklist non contiene carte riconoscibili." };
+  let existingDeckId: string | null = null;
+  let deck: ReturnType<typeof parseDecklist> | null = null;
+  if (deckChoice === "new") {
+    // La lista può includere il leader: se c'è, è quello del mazzo.
+    const { data: ls } = await op.from("leaders").select("card_code");
+    deck = parseDecklist(deckText, { leaderCodes: new Set((ls ?? []).map((l) => l.card_code)) });
+    if (deck.errors.length > 0) return { error: deck.errors[0] };
+    if (deck.cards.length === 0) return { error: "Incolla una decklist valida o scegli un mazzo salvato." };
+    if (deck.leaderCode) {
+      if (leaderCode && leaderCode !== deck.leaderCode) {
+        return { error: `La decklist ha il leader ${deck.leaderCode}, diverso da ${leaderCode}.` };
+      }
+      leaderCode = deck.leaderCode;
+    }
+  } else if (deckChoice) {
+    if (!UUID.test(deckChoice)) return { error: "Mazzo non valido." };
+    const { data: d } = await op
+      .from("decks")
+      .select("id, leader_code")
+      .eq("id", deckChoice)
+      .eq("owner_id", auth.user.id)
+      .maybeSingle();
+    if (!d?.leader_code) return { error: "Mazzo non trovato." };
+    existingDeckId = d.id;
+    leaderCode = d.leader_code; // il mazzo salvato decide il leader, come in "Cambia mazzo"
+  }
+  if (!leaderCode) return { error: "Scegli il tuo leader o incolla una decklist che lo include." };
+
+  // Locale facoltativo per i tornei liberi (nome e logo nelle immagini): deve essere un locale visibile.
+  const shopChoice = tournamentId ? "" : text(fd, "shop_id", 40);
+  if (shopChoice) {
+    if (!UUID.test(shopChoice)) return { error: "Locale non valido." };
+    const { data: shop } = await supabase.from("shops").select("id").eq("id", shopChoice).maybeSingle();
+    if (!shop) return { error: "Locale non trovato." };
+  }
 
   // Torneo censito: la data è quella del torneo.
   if (tournamentId) {
@@ -133,31 +181,37 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
     }
   }
 
-  const op = supabase.schema("onepiece");
-
   // --- Scritture (non transazionali: in caso di errore si annulla a mano) ---
-  let deckId: string | null = null;
+  let deckId: string | null = existingDeckId;
+  let createdDeckId: string | null = null;
   if (deck) {
     const { data: d, error } = await op
       .from("decks")
       .insert({
-        name: `Mazzo ${playedOn}`,
+        name: `Mazzo ${leaderCode} ${playedOn}`,
         leader_code: leaderCode,
         decklist_text: deckText,
         visibility: "private",
       })
       .select("id")
       .single();
-    if (error || !d) return { error: "Non sono riuscito a salvare la decklist." };
+    if (error || !d) {
+      return { error: error?.code === "23503" ? "Leader non valido." : "Non sono riuscito a salvare la decklist." };
+    }
+    createdDeckId = d.id;
     deckId = d.id;
     const { error: cardsErr } = await op
       .from("deck_cards")
-      .insert(deck.cards.map((c) => ({ deck_id: deckId, ...c })));
+      .insert(deck.cards.map((c) => ({ deck_id: d.id, ...c })));
     if (cardsErr) {
-      await op.from("decks").delete().eq("id", deckId);
+      await op.from("decks").delete().eq("id", d.id);
       return { error: "Non sono riuscito a salvare le carte del mazzo." };
     }
   }
+  // Si elimina solo il mazzo creato qui, mai uno già salvato dall'utente.
+  const rollbackDeck = async () => {
+    if (createdDeckId) await op.from("decks").delete().eq("id", createdDeckId);
+  };
 
   const { data: part, error: partErr } = await supabase
     .from("participations")
@@ -166,17 +220,18 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
       tcg_id: tcg.id,
       played_on: playedOn,
       standalone_label: linkedTournamentId ? null : label,
+      ...(shopChoice && !linkedTournamentId ? { shop_id: shopChoice } : {}),
       placement,
       players_count: playersCount,
-      wins: wins ?? 0,
-      losses: losses ?? 0,
+      wins,
+      losses,
       notes,
     })
     .select("id")
     .single();
 
   if (partErr || !part) {
-    if (deckId) await op.from("decks").delete().eq("id", deckId);
+    await rollbackDeck();
     return {
       error:
         partErr?.code === "23505"
@@ -199,8 +254,13 @@ export async function saveResult(_prev: ActionState, fd: FormData): Promise<Acti
 
   if (detErr || matchErr) {
     await supabase.from("participations").delete().eq("id", part.id); // cascata su details e matches
-    if (deckId) await op.from("decks").delete().eq("id", deckId);
-    return { error: "Non sono riuscito a salvare tutti i dati. Nulla è stato registrato." };
+    await rollbackDeck();
+    const fk = detErr?.code === "23503" || matchErr?.code === "23503";
+    return {
+      error: fk
+        ? "Leader non valido: controlla il tuo leader e quelli degli avversari. Nulla è stato registrato."
+        : "Non sono riuscito a salvare tutti i dati. Nulla è stato registrato.",
+    };
   }
 
   redirect("/onepiece/risultati");

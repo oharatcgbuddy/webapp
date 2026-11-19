@@ -79,7 +79,7 @@ async function TrackLoader() {
         .neq("status", "cancelled")
         .order("starts_at", { ascending: true })
         .limit(50),
-      op.from("decks").select("id, name").eq("owner_id", uid).order("created_at", { ascending: false }).limit(50),
+      op.from("decks").select("id, name, leader_code").eq("owner_id", uid).order("created_at", { ascending: false }).limit(50),
       supabase.from("shops").select("id, name, city").eq("status", "approved").order("name").limit(500),
     ]);
 

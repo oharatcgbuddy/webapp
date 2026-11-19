@@ -76,18 +76,25 @@ export function LeaderPicker({
   label,
   leaders,
   required = true,
+  onChange,
 }: {
   name: string;
   label: string;
   leaders: LeaderOpt[];
   required?: boolean;
+  // Per chi tiene il valore in uno stato proprio (es. i round del modulo manuale).
+  onChange?: (code: string) => void;
 }) {
   const [query, setQuery] = useState("");
   const [value, setValue] = useState("");
   const [showAllMeta, setShowAllMeta] = useState(false);
 
   // Si può togliere la scelta solo se il leader è facoltativo.
-  const pick = (code: string) => setValue((v) => (v === code && !required ? "" : code));
+  const pick = (code: string) => {
+    const next = value === code && !required ? "" : code;
+    setValue(next);
+    onChange?.(next);
+  };
 
   const meta = leaders
     .filter((l) => l.meta_position != null)

@@ -89,7 +89,7 @@ class RenderRequest(BaseModel):
     title: str = Field(max_length=60)
     leader: Leader
     cards: list[Card] = Field(max_length=60)
-    # Risultato (solo kind="result"): "WINNER" in oro oppure un record come "6-1".
+    # Risultato (solo kind="result"): "WINNER" in oro (nessuna sconfitta) oppure "X-1", "X-2"… (il numero dopo la X sono le sconfitte).
     result_label: str | None = Field(default=None, max_length=20)
     result_winner: bool = False
     placement_text: str | None = Field(default=None, max_length=30)
@@ -123,6 +123,15 @@ def fit(draw: ImageDraw.ImageDraw, s: str, f: ImageFont.FreeTypeFont, max_w: flo
     while len(s) > 1 and text_w(draw, s + "…", f) > max_w:
         s = s[:-1]
     return s.rstrip() + "…"
+
+
+def shrink(draw, s: str, size: int, weight: int, max_w: float, min_size: int):
+    """Font e testo: si rimpicciolisce il carattere finché il testo sta nello spazio; sotto il minimo si accorcia con "…"."""
+    f = font(size, weight)
+    while size > min_size and text_w(draw, s, f) > max_w:
+        size -= 1
+        f = font(size, weight)
+    return f, fit(draw, s, f, max_w)
 
 
 def text(draw, xy, s, f, fill=TEXT, anchor="la"):
@@ -169,9 +178,21 @@ def color_dots(draw, x, y, colors: list[str], r: float = 9) -> float:
     return x + len(colors[:4]) * (r * 2 + 6)
 
 
-def pill(draw, x, y, label: str, f, fill, fg=INK, pad_x=18, h=44, min_w=0, bw=3, sh=3) -> float:
+def extruded(draw, box, fill, bw, depth):
+    """Riquadro con profondità: un blocco nero pieno in basso a destra, nella stessa direzione dell'ombra della carta del
+    leader e degli altri riquadri (la forma viene ripetuta spostandola un pixel alla volta, senza spazi)."""
+    x0, y0, x1, y1 = box
+    for k in range(depth, 0, -1):
+        draw.rectangle((S(x0 + k), S(y0 + k), S(x1 + k), S(y1 + k)), fill=INK)
+    draw.rectangle((S(x0), S(y0), S(x1), S(y1)), fill=fill, outline=INK, width=S(bw))
+
+
+def pill(draw, x, y, label: str, f, fill, fg=INK, pad_x=18, h=44, min_w=0, bw=3, sh=3, depth=0) -> float:
     w = max(min_w, text_w(draw, label, f) + pad_x * 2)
-    brutal(draw, (x, y, x + w, y + h), fill=fill, bw=bw, sh=sh)
+    if depth:
+        extruded(draw, (x, y, x + w, y + h), fill, bw, depth)
+    else:
+        brutal(draw, (x, y, x + w, y + h), fill=fill, bw=bw, sh=sh)
     text(draw, (x + w / 2, y + h / 2), label, f, fill=fg, anchor="mm")
     return x + w
 
@@ -241,6 +262,8 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     bar_h = 124  # il logo del locale (96) è il più grande, quello di Ohara (64) è più piccolo ma ben visibile
     top_gap = 34 if compact else 48
     content_h = 222 if compact else 252  # titolo, leader, risultato in evidenza, dettagli del torneo
+    if req.kind == "result" and req.result_label:
+        content_h += 11  # profondità del risultato: la riga del torneo scende di altrettanto
     head_h = bar_h + top_gap + max(lh, content_h) + (28 if compact else 40)
     stats_h = 0 if compact else (230 if cards else 0)
     row_h = 56 if compact else 62
@@ -265,6 +288,21 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
         cols = 6
     card_w, card_h, rows, grid_h = dims(cols)
     natural = fixed + grid_h
+    # Post: lo spazio avanzato va in buona parte all'intestazione (leader, logo del locale, testi), che si ingrandisce.
+    hk = 1.0
+    if compact and total_h and total_h > natural:
+        hk = min(1.25, 1 + 0.7 * (total_h - natural) / max(lh, content_h))
+        old_head = head_h
+        lw, lh, content_h = round(lw * hk), round(lh * hk), round(content_h * hk)
+        head_h = bar_h + top_gap + max(lh, content_h) + 28
+        natural += head_h - old_head
+        # Quello che resta si divide per metà tra gli spazi tra le sezioni (intestazione, mazzo, scontri) e il margine.
+        n_gaps = 1 + (1 if req.matchups else 0)
+        extra = round(max(0, total_h - natural) * 0.5 / n_gaps)
+        head_h += extra
+        if req.matchups:
+            gap += extra
+        natural += extra * n_gaps
     H = max(natural, total_h or 0)
     dy = (H - natural) / 2  # spazio in più: il contenuto resta centrato tra barra e piè di pagina
 
@@ -279,25 +317,16 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     cy = (bar_h - BORDER) / 2
     big, small = 96, 64
 
-    def logo_box(img, x0, size):
-        # logo "contenuto" su fondo bianco, con bordo come il resto
-        d.rectangle((S(x0), S(cy - size / 2), S(x0 + size), S(cy + size / 2)), fill=WHITE)
-        paste_rounded(canvas, img, (x0 + 6, cy - size / 2 + 6, x0 + size - 6, cy + size / 2 - 6), 0, "", cover=False)
-        d.rectangle((S(x0), S(cy - size / 2), S(x0 + size), S(cy + size / 2)), outline=INK, width=S(3))
-
     if req.shop:
         left = PAD
-        if shop_img is not None:
-            logo_box(shop_img, left, big)
-            left += big + 22
         brand_f = font(24, 700)
         brand_w = text_w(d, "Ohara TCG Buddy", brand_f)
         right = W - PAD
         text(d, (right, cy), "Ohara TCG Buddy", brand_f, anchor="rm")
         if app is not None:
             paste_rounded(canvas, app, (right - brand_w - 12 - small, cy - small / 2, right - brand_w - 12, cy + small / 2), 0, "", cover=False)
-        name_f = font(36, 700)
-        text(d, (left, cy), fit(d, req.shop.name, name_f, right - brand_w - 12 - small - left - 24), name_f, anchor="lm")
+        name_f, shop_name = shrink(d, req.shop.name, 36, 700, right - brand_w - 12 - small - left - 24, 24)
+        text(d, (left, cy), shop_name, name_f, anchor="lm")
     else:
         left = PAD
         if app is not None:
@@ -310,30 +339,46 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     d.rectangle((S(PAD + 8), S(ly + 8), S(PAD + lw + 8), S(ly + lh + 8)), fill=INK)
     frame_image(canvas, d, load_image(images.get(f"leader:{req.leader.code}")), (PAD, ly, PAD + lw, ly + lh), req.leader.code, bw=4)
     x = PAD + lw + 40
-    tsize = 56 if compact else 64
-    title = fit(d, req.title, font(tsize, 700), W - x - PAD)
-    text(d, (x, ly - 4), title, font(tsize, 700))
-    off = 74 if compact else 86
-    cx = color_dots(d, x, ly + off, req.leader.colors, r=12)
+    # Logo del locale senza cornice, in alto a destra: il testo dell'intestazione si ferma prima.
+    logo_sz = round((180 if compact else 210) * hk)
+    right_limit = W - PAD - (logo_sz + 28 if shop_img is not None else 0)
+    if shop_img is not None:
+        paste_rounded(canvas, shop_img, (W - PAD - logo_sz, ly, W - PAD, ly + logo_sz), 0, "", cover=False)
+    tsize = round((56 if compact else 64) * hk)
+    title_f, title = shrink(d, req.title, tsize, 700, right_limit - x, 36)
+    text(d, (x, ly - 4), title, title_f)
+    off = round((74 if compact else 86) * hk)
+    cx = color_dots(d, x, ly + off, req.leader.colors, r=12 * hk)
     sub = f"{req.leader.code} · {req.leader.name}"
-    text(d, (cx + 8, ly + off + 12), fit(d, sub, font(28, 700), W - cx - PAD - 20), font(28, 700), anchor="lm")
+    sub_f, sub = shrink(d, sub, round(28 * hk), 700, right_limit - cx - 20, 20)
+    text(d, (cx + 8, ly + off + 12 * hk), sub, sub_f, anchor="lm")
 
     # Il risultato (WINNER, 6-1…) è l'elemento più importante dopo il nome: grande, con ombra marcata.
-    ry = ly + (106 if compact else 124)
-    big_h = 76 if compact else 84
+    ry = ly + round((106 if compact else 124) * hk)
+    big_h = round((76 if compact else 84) * hk)
     info_y = ry
     if req.kind == "result" and req.result_label:
-        fsz = 50 if compact else 56
-        cur = pill(d, x, ry, req.result_label, font(fsz, 700), YELLOW if req.result_winner else BLUE, pad_x=30, h=big_h, bw=4, sh=6) + 24
+        fsz = round((50 if compact else 56) * hk)
+        depth = round(11 * hk)
+        # La profondità scende a destra e in basso: si lascia spazio al piazzamento e alla riga del torneo.
+        cur = pill(d, x, ry, req.result_label, font(fsz, 700), YELLOW if req.result_winner else BLUE, pad_x=round(30 * hk), h=big_h, bw=5, depth=depth) + depth + 24
         if req.placement_text:
-            ph = 56
-            pill(d, cur, ry + (big_h - ph) / 2, req.placement_text, font(30, 700), WHITE, pad_x=22, h=ph)
-        info_y = ry + big_h + 14
+            ph = round(56 * hk)
+            pad_p = round(22 * hk)
+            # Il testo del piazzamento si rimpicciolisce se non starebbe prima del logo del locale.
+            pf, ptxt = shrink(d, req.placement_text, round(30 * hk), 700, right_limit - cur - 2 * pad_p, 20)
+            pill(d, cur, ry + (big_h - ph) / 2, ptxt, pf, WHITE, pad_x=pad_p, h=ph)
+        info_y = ry + big_h + depth + 14
     # Torneo e data: una riga di testo semplice, secondaria.
     if req.tournament or req.date:
-        f = font(24, 600)
         tail = (" · " if req.tournament and req.date else "") + (req.date or "")
-        head = fit(d, req.tournament, f, W - x - PAD - text_w(d, tail, f)) if req.tournament else ""
+        size = round(24 * hk)
+        f = font(size, 600)
+        # Si rimpicciolisce tutta la riga (torneo e data insieme); solo sotto il minimo si accorcia il torneo.
+        while size > 17 and text_w(d, (req.tournament or "") + tail, f) > right_limit - x:
+            size -= 1
+            f = font(size, 600)
+        head = fit(d, req.tournament, f, right_limit - x - text_w(d, tail, f)) if req.tournament else ""
         text(d, (x, info_y + 14), head + tail, f, fill=MUTED, anchor="lm")  # si accorcia il torneo, mai la data
 
     # --- griglia del mazzo ---
@@ -399,7 +444,8 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
         colw = (W - 2 * PAD - 56 - 24) / 2
         for i, m in enumerate(req.matchups):
             if compact:
-                ccol, crow = i % 2, i // 2
+                # Si riempie prima la colonna di sinistra in verticale, poi quella di destra: 1 4 / 2 5 / 3.
+                ccol, crow = divmod(i, m_rows)
                 cx0 = PAD + 28 + ccol * (colw + 24)
                 ry = y + 70 + crow * row_h
                 if ccol == 0 and crow:
@@ -409,7 +455,14 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                 if m.result != "bye":
                     frame_image(canvas, d, thumb, (cx0 + 40, ry + 2, cx0 + 40 + 30, ry + 2 + 42), "", bw=2.5)
                 name = "Nessun avversario" if m.result == "bye" else (m.opponent_name or m.opponent_code or "Avversario n/d")
-                text(d, (cx0 + 82, ry + 24), fit(d, name, font(21, 700), colw - 82 - 36 - 12 - 96 - 8), font(21, 700), anchor="lm")
+                # Colori del leader avversario dopo il nome, come nelle altre versioni (il nome si accorcia per lasciare posto).
+                dot_r = 7
+                dots = m.opponent_colors[:4] if m.result != "bye" else []
+                dots_w = len(dots) * (dot_r * 2 + 6) + (6 if dots else 0)
+                name_f, name = shrink(d, name, 21, 700, colw - 82 - 36 - 12 - 96 - 8 - dots_w, 15)
+                text(d, (cx0 + 82, ry + 24), name, name_f, anchor="lm")
+                if dots:
+                    color_dots(d, cx0 + 82 + text_w(d, name, name_f) + 10, ry + 24 - dot_r, dots, r=dot_r)
                 if m.dice_won is not None and m.result != "bye":
                     die(d, cx0 + colw - 96 - 12 - 32, ry + 7, 32, GREEN if m.dice_won else RED)
                 label, fill = verdict[m.result]
@@ -424,9 +477,9 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
                     frame_image(canvas, d, thumb, (PAD + 86, ry + 2, PAD + 86 + 36, ry + 2 + 50), "", bw=2.5)
                 nx = PAD + 140
                 name = "Nessun avversario" if m.result == "bye" else (m.opponent_name or m.opponent_code or "Avversario n/d")
-                shown = fit(d, name, font(26, 700), 380)
-                text(d, (nx, ry + 26), shown, font(26, 700), anchor="lm")
-                color_dots(d, nx + text_w(d, shown, font(26, 700)) + 14, ry + 16, m.opponent_colors, r=9)
+                name_f, shown = shrink(d, name, 26, 700, 380, 18)
+                text(d, (nx, ry + 26), shown, name_f, anchor="lm")
+                color_dots(d, nx + text_w(d, shown, name_f) + 14, ry + 16, m.opponent_colors, r=9)
                 if m.dice_won is not None and m.result != "bye":
                     die(d, W - PAD - 28 - 118 - 24 - 40, ry + 5, 40, GREEN if m.dice_won else RED)
                 label, fill = verdict[m.result]

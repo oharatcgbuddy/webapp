@@ -56,3 +56,11 @@ __pycache__/
 
 # configurazione MCP locale (contiene il riferimento del progetto Supabase): usa .mcp.example.json come modello
 /.mcp.json
+
+# servizio immagini: mockup locale
+/services/image-api/out/
+/services/image-api/.cache/
+/services/image-api/mockup.py
+
+tmp.*
+tmp/

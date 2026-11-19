@@ -12,6 +12,7 @@ type ShopRow = {
   province: string | null;
   lat: number;
   lng: number;
+  logo_url: string | null;
 };
 
 async function MapLoader() {
@@ -22,7 +23,7 @@ async function MapLoader() {
   const [shopsRes, tournamentsRes] = await Promise.all([
     supabase
       .from("shops")
-      .select("id, slug, name, city, province, lat, lng")
+      .select("id, slug, name, city, province, lat, lng, logo_url")
       .eq("status", "approved")
       .not("lat", "is", null)
       .not("lng", "is", null)

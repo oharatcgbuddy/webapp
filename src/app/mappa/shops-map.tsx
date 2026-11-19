@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { shopLogoUrl } from "@/lib/shop-logo";
 import { ITALY_CENTER, MAP_STYLE, distanceKm, formatKm, type LatLng } from "@/lib/geo";
 
 export type MapShop = {
@@ -14,8 +16,29 @@ export type MapShop = {
   province: string | null;
   lat: number;
   lng: number;
+  logo_url: string | null;
   next_at: string | null;
 };
+
+// Logo tondo del negozio; senza logo, un cerchio con l'iniziale (così le righe restano allineate).
+function ShopLogo({ shop, size }: { shop: MapShop; size: number }) {
+  const src = shopLogoUrl(shop.logo_url);
+  const box = "shrink-0 rounded-full border-[3px] border-ink";
+  if (!src) {
+    return (
+      <span
+        aria-hidden
+        style={{ width: size, height: size }}
+        className={`${box} flex items-center justify-center bg-brand-yellow font-black`}
+      >
+        {shop.name.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <Image unoptimized src={src} alt="" width={size} height={size} style={{ width: size, height: size }} className={`${box} object-cover`} />
+  );
+}
 
 const dateFmt = new Intl.DateTimeFormat("it-IT", {
   timeZone: "Europe/Rome",
@@ -183,8 +206,13 @@ export function ShopsMap({ shops }: { shops: MapShop[] }) {
 
       {selected && (
         <section className="brutal-card space-y-1 p-4" aria-live="polite">
-          <h2 className="text-lg font-black leading-tight">{selected.name}</h2>
-          <p className="text-sm">{[selected.city, selected.province].filter(Boolean).join(" ")}</p>
+          <div className="flex items-center gap-3">
+            <ShopLogo shop={selected} size={56} />
+            <div className="min-w-0">
+              <h2 className="text-lg font-black leading-tight">{selected.name}</h2>
+              <p className="text-sm">{[selected.city, selected.province].filter(Boolean).join(" ")}</p>
+            </div>
+          </div>
           {selected.next_at && (
             <p className="text-sm font-bold">Prossimo torneo: {dateFmt.format(new Date(selected.next_at))}</p>
           )}
@@ -210,10 +238,13 @@ export function ShopsMap({ shops }: { shops: MapShop[] }) {
                   onClick={() => focusShop(shop)}
                   className="brutal-card flex w-full items-center justify-between gap-2 p-3 text-left"
                 >
-                  <span className="min-w-0">
-                    <span className="block truncate font-black">{shop.name}</span>
-                    <span className="block truncate text-sm">
-                      {[shop.city, shop.province].filter(Boolean).join(" ")}
+                  <span className="flex min-w-0 items-center gap-3">
+                    <ShopLogo shop={shop} size={44} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-black">{shop.name}</span>
+                      <span className="block truncate text-sm">
+                        {[shop.city, shop.province].filter(Boolean).join(" ")}
+                      </span>
                     </span>
                   </span>
                   {km !== null && (

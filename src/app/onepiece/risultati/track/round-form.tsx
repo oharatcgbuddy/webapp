@@ -58,6 +58,14 @@ export function RoundForm({ round, leaders }: { round: number; leaders: LeaderOp
           </fieldset>
 
           <fieldset className="space-y-1">
+            <legend className="text-sm font-bold uppercase">Turno</legend>
+            <div className="flex gap-2">
+              <Segment name="turn" value="first" text="Primo" active="has-checked:bg-brand-yellow" />
+              <Segment name="turn" value="second" text="Secondo" active="has-checked:bg-brand-yellow" />
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-1">
             <legend className="text-sm font-bold uppercase">Esito</legend>
             <div className="flex gap-2">
               <Segment name="result" value="win" text="Vinto" active="has-checked:bg-brand-green" />

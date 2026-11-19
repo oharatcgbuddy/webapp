@@ -29,6 +29,7 @@ type MatchRow = {
   opponent_leader_code: string | null;
   opponent_name: string | null;
   won_dice: boolean | null;
+  went_first: boolean | null;
   result: "win" | "loss" | "bye";
   notes: string | null;
 };
@@ -82,7 +83,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", id).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, opponent_name, won_dice, result, notes")
+      .select("round, opponent_leader_code, opponent_name, won_dice, went_first, result, notes")
       .eq("participation_id", id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
@@ -118,6 +119,7 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
   const label = (code: string | null) => (code ? `${code} · ${names.get(code) ?? ""}` : null);
   const totalCards = (deckCards ?? []).reduce((sum, c) => sum + c.qty, 0);
   const diceKnown = matches.filter((m) => m.won_dice !== null);
+  const turnKnown = matches.filter((m) => m.went_first !== null);
 
   // Torneo libero: il proprietario può scegliere un locale (nome e logo nelle immagini).
   let shopOptions: ShopOption[] = [];
@@ -148,6 +150,11 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
               {data.placement}° {data.players_count ? `su ${data.players_count}` : ""}
             </span>
           )}
+          {turnKnown.length > 0 && (
+            <span className="border-2 border-ink bg-white px-2 py-1">
+              Primo {turnKnown.filter((m) => m.went_first).length}/{turnKnown.length}
+            </span>
+          )}
           {diceKnown.length > 0 && (
             <span className="border-2 border-ink bg-white px-2 py-1">
               Dado vinto {diceKnown.filter((m) => m.won_dice).length}/{diceKnown.length}
@@ -169,7 +176,12 @@ async function ResultDetail({ params }: { params: Promise<{ id: string }> }) {
                   <p className="font-bold leading-tight">
                     {m.result === "bye" ? "Nessun avversario" : (label(m.opponent_leader_code) ?? m.opponent_name ?? "Avversario n/d")}
                   </p>
-                  {m.won_dice !== null && <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>}
+                  {m.won_dice !== null && (
+                    <p className="text-xs">
+                      Dado {m.won_dice ? "vinto" : "perso"}
+                      {m.went_first !== null && ` · ${m.went_first ? "primo" : "secondo"}`}
+                    </p>
+                  )}
                   {m.notes && <p className="mt-1 text-sm italic">{m.notes}</p>}
                 </div>
                 <span className={`border-2 border-ink px-2 py-1 text-xs font-black uppercase ${RESULT[m.result].cls}`}>

@@ -197,12 +197,14 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
 
   const opponent = text(fd, "opponent_leader", 20);
   const dice = text(fd, "dice", 4);
+  const turn = text(fd, "turn", 6);
   const result = text(fd, "result", 4);
   if (result !== "win" && result !== "loss" && result !== "bye") return { error: "Indica l'esito del round." };
   // Il BYE è un turno di riposo: conta come vinto e non ha avversario né dado. Il pareggio non esiste.
   const isBye = result === "bye";
   if (!isBye && !opponent) return { error: "Scegli il leader avversario." };
   if (!isBye && dice !== "won" && dice !== "lost") return { error: "Indica se hai vinto il dado." };
+  if (!isBye && turn !== "first" && turn !== "second") return { error: "Indica se hai giocato per primo o per secondo." };
   // Si legge più lungo del massimo per accorgersi dei testi troppo lunghi invece di tagliarli in silenzio.
   const note = cleanNote(text(fd, "notes", 1000));
   if ("error" in note) return { error: note.error };
@@ -223,6 +225,7 @@ export async function addRound(_prev: ActionState, fd: FormData): Promise<Action
     round,
     opponent_leader_code: isBye ? null : opponent,
     won_dice: isBye ? null : dice === "won",
+    went_first: isBye ? null : turn === "first",
     result,
     notes: note.value,
   });

@@ -18,6 +18,7 @@ type MatchRow = {
   round: number;
   opponent_leader_code: string | null;
   won_dice: boolean | null;
+  went_first: boolean | null;
   result: "win" | "loss" | "bye";
   notes: string | null;
 };
@@ -101,7 +102,7 @@ async function TrackLoader() {
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", open.id).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, won_dice, result, notes")
+      .select("round, opponent_leader_code, won_dice, went_first, result, notes")
       .eq("participation_id", open.id)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
@@ -149,7 +150,10 @@ async function TrackLoader() {
                         : "Avversario n/d"}
                   </p>
                   {m.won_dice !== null && (
-                    <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>
+                    <p className="text-xs">
+                      Dado {m.won_dice ? "vinto" : "perso"}
+                      {m.went_first !== null && ` · ${m.went_first ? "primo" : "secondo"}`}
+                    </p>
                   )}
                   {m.notes && <p className="mt-1 text-sm italic">{m.notes}</p>}
                 </div>

@@ -31,6 +31,7 @@ type MatchInput = {
   result: "win" | "loss" | "bye";
   opponent_leader_code: string | null;
   won_dice: boolean | null;
+  went_first: boolean | null;
   notes: string | null;
 };
 
@@ -51,16 +52,18 @@ function parseMatches(raw: string): MatchInput[] | { error: string } | null {
       const note = cleanNote(typeof m.notes === "string" ? m.notes.slice(0, 1000) : "");
       if ("error" in note) return { error: `Round ${n}: ${note.error}` };
       if (m.result === "bye") {
-        out.push({ result: "bye", opponent_leader_code: null, won_dice: null, notes: note.value });
+        out.push({ result: "bye", opponent_leader_code: null, won_dice: null, went_first: null, notes: note.value });
         continue;
       }
       const opponent = typeof m.opponent_leader_code === "string" ? m.opponent_leader_code.trim().slice(0, 20) : "";
       if (!opponent) return { error: `Round ${n}: scegli il leader avversario.` };
       if (m.dice !== "won" && m.dice !== "lost") return { error: `Round ${n}: indica se hai vinto il dado.` };
+      if (m.turn !== "first" && m.turn !== "second") return { error: `Round ${n}: indica se hai giocato per primo o per secondo.` };
       out.push({
         result: m.result,
         opponent_leader_code: opponent,
         won_dice: m.dice === "won",
+        went_first: m.turn === "first",
         notes: note.value,
       });
     }

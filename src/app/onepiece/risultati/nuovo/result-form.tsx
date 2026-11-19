@@ -14,6 +14,7 @@ type MatchRow = {
   bye: boolean;
   opponent_leader_code: string;
   dice: "" | "won" | "lost";
+  turn: "" | "first" | "second";
   result: "" | "win" | "loss";
   notes: string;
 };
@@ -90,7 +91,7 @@ export function ResultForm({
   const payload = matches.map((m) =>
     m.bye
       ? { result: "bye", notes: m.notes }
-      : { result: m.result, opponent_leader_code: m.opponent_leader_code, dice: m.dice, notes: m.notes },
+      : { result: m.result, opponent_leader_code: m.opponent_leader_code, dice: m.dice, turn: m.turn, notes: m.notes },
   );
 
   if (leaders.length === 0) {
@@ -258,6 +259,15 @@ export function ResultForm({
                 ]}
               />
               <Choice
+                legend="Turno"
+                value={m.turn}
+                onPick={(v) => update(m.key, { turn: v as MatchRow["turn"] })}
+                options={[
+                  { value: "first", text: "Primo", active: "bg-brand-yellow" },
+                  { value: "second", text: "Secondo", active: "bg-brand-yellow" },
+                ]}
+              />
+              <Choice
                 legend="Esito"
                 value={m.result}
                 onPick={(v) => update(m.key, { result: v as MatchRow["result"] })}
@@ -294,7 +304,7 @@ export function ResultForm({
             onClick={() =>
               setMatches((rows) => [
                 ...rows,
-                { key: nextKey.current++, bye: false, opponent_leader_code: "", dice: "", result: "", notes: "" },
+                { key: nextKey.current++, bye: false, opponent_leader_code: "", dice: "", turn: "", result: "", notes: "" },
               ])
             }
           >

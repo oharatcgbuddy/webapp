@@ -22,6 +22,7 @@ type MatchRow = {
   round: number;
   opponent_leader_code: string | null;
   won_dice: boolean | null;
+  went_first: boolean | null;
   result: "win" | "loss" | "bye";
 };
 
@@ -71,7 +72,7 @@ async function PlayerResult({ params }: { params: Promise<{ slug: string; id: st
     op.from("participation_details").select("leader_code, deck_id").eq("participation_id", pid).maybeSingle(),
     op
       .from("matches")
-      .select("round, opponent_leader_code, won_dice, result")
+      .select("round, opponent_leader_code, won_dice, went_first, result")
       .eq("participation_id", pid)
       .order("round", { ascending: true })
       .overrideTypes<MatchRow[], { merge: false }>(),
@@ -134,7 +135,12 @@ async function PlayerResult({ params }: { params: Promise<{ slug: string; id: st
                   <p className="font-bold leading-tight">
                     {m.result === "bye" ? "Nessun avversario" : (label(m.opponent_leader_code) ?? "Avversario n/d")}
                   </p>
-                  {m.won_dice !== null && <p className="text-xs">Dado {m.won_dice ? "vinto" : "perso"}</p>}
+                  {m.won_dice !== null && (
+                    <p className="text-xs">
+                      Dado {m.won_dice ? "vinto" : "perso"}
+                      {m.went_first !== null && ` · ${m.went_first ? "primo" : "secondo"}`}
+                    </p>
+                  )}
                 </div>
                 <span className={`border-2 border-ink px-2 py-1 text-xs font-black uppercase ${RESULT[m.result].cls}`}>
                   {RESULT[m.result].text}

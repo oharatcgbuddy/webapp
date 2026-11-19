@@ -31,13 +31,6 @@ const dateFmt = new Intl.DateTimeFormat("it-IT", {
   minute: "2-digit",
 });
 
-function euro(cents: number | null) {
-  if (cents == null) return null;
-  return cents === 0
-    ? "Gratis"
-    : new Intl.NumberFormat("it-IT", { style: "currency", currency: "EUR" }).format(cents / 100);
-}
-
 const RADII = [10, 25, 50, 100, 0]; // 0 = nessun limite
 
 // Giorno nel fuso italiano come "AAAA-MM-GG" (il formato del selettore data).
@@ -152,7 +145,8 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
         <ul className="space-y-4">
           {rows.map(({ t, km }) => (
             <li key={t.id} className="brutal-card p-4">
-              <div className="flex items-start gap-3">
+              <div className="flex items-center gap-3">
+                {t.shops && <ShopLogo name={t.shops.name} logoUrl={t.shops.logo_url} size={56} />}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(t.starts_at))}</p>
                   <h2 className="text-xl font-black leading-tight">
@@ -164,22 +158,13 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
                     {t.shops ? `${t.shops.name}${t.shops.city ? ` · ${t.shops.city}` : ""}` : "Torneo libero"}
                   </p>
                 </div>
-                {t.shops && <ShopLogo name={t.shops.name} logoUrl={t.shops.logo_url} size={56} />}
               </div>
-              <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
-                {km !== null && (
-                  <span className="border-2 border-ink bg-brand-pink px-2 py-1">{formatKm(km)}</span>
-                )}
-                {euro(t.entry_fee_cents) && (
-                  <span className="border-2 border-ink bg-brand-yellow px-2 py-1">{euro(t.entry_fee_cents)}</span>
-                )}
-                {t.format_slug && (
-                  <span className="border-2 border-ink bg-brand-blue px-2 py-1">{t.format_slug}</span>
-                )}
-                {t.max_players && (
-                  <span className="border-2 border-ink bg-brand-green px-2 py-1">{t.max_players} posti</span>
-                )}
-              </p>
+              {(km !== null || t.format_slug) && (
+                <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                  {km !== null && <span className="border-2 border-ink bg-brand-pink px-2 py-1">{formatKm(km)}</span>}
+                  {t.format_slug && <span className="border-2 border-ink bg-brand-blue px-2 py-1">{t.format_slug}</span>}
+                </p>
+              )}
             </li>
           ))}
         </ul>

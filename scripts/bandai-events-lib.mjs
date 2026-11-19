@@ -58,9 +58,26 @@ async function fetchPage(session, extra, offset, { from, to }) {
   if (from) params.start_date = from;
   if (to) params.end_date = to;
   const url = `${API_LIST}?${new URLSearchParams(Object.entries(params).map(([k, v]) => [k, String(v)]))}`;
-  const res = await session.ctx.request.get(url, { headers: session.headers, timeout: 30_000 });
-  if (!res.ok()) throw new Error(`API Bandai: HTTP ${res.status()} (sessione scaduta? rilancia lo script)`);
-  return (await res.json()).success;
+  // Errori del server di Bandai (5xx) o timeout: si riprova fino a 4 volte, con pause crescenti.
+  let lastError;
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      const res = await session.ctx.request.get(url, { headers: session.headers, timeout: 30_000 });
+      if (res.ok()) return (await res.json()).success;
+      const status = res.status();
+      if (status === 401 || status === 403) throw new Error(`API Bandai: HTTP ${status} (sessione scaduta? rilancia lo script e rifai il login)`);
+      lastError = new Error(`API Bandai: HTTP ${status}`);
+      if (status < 500 && status !== 429) throw lastError;
+    } catch (err) {
+      if (/HTTP 40[13]|HTTP 4\d\d/.test(err.message)) throw err;
+      lastError = err;
+    }
+    if (attempt < 4) {
+      console.log(`  (${lastError.message}: riprovo tra ${attempt * 5} s, tentativo ${attempt + 1}/4)`);
+      await sleep(attempt * 5000);
+    }
+  }
+  throw lastError;
 }
 
 // Tutti gli eventi che l'API restituisce per un filtro (es. { organizer_id: "5823" } o { keyword: "…" }).

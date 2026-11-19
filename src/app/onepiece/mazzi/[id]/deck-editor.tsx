@@ -137,6 +137,16 @@ export function DeckEditor({
     setLimit(VISIBLE);
   };
 
+  const hasFilters = q !== "" || setFilter !== "" || colorSel.length > 0 || typeSel.length > 0 || costSel.length > 0;
+  const resetFilters = () => {
+    setQ("");
+    setSetFilter("");
+    setColorSel([]);
+    setTypeSel([]);
+    setCostSel([]);
+    setLimit(VISIBLE);
+  };
+
   const add = (code: string) => {
     const qty = entries[code] ?? 0;
     if (qty >= MAX_COPIES) return setMsg({ ok: false, text: `Al massimo ${MAX_COPIES} copie di ${code}.` });
@@ -341,7 +351,17 @@ export function DeckEditor({
           ))}
         </div>
 
-        <p className="text-sm font-bold">{results.length} carte</p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-bold">{results.length} carte</p>
+          <button
+            type="button"
+            onClick={resetFilters}
+            disabled={!hasFilters}
+            className="border-[3px] border-ink bg-white px-3 py-1 text-sm font-bold disabled:opacity-40"
+          >
+            Reset filtri
+          </button>
+        </div>
         <div className="grid grid-cols-3 gap-2">
           {results.slice(0, limit).map((c) => {
             const qty = entries[c.card_code] ?? 0;

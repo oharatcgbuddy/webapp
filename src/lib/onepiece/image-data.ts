@@ -84,11 +84,11 @@ function toMatchups(raw: RawMatch[], leaders: Map<string, LeaderRow>): ImageMatc
   });
 }
 
-// "WINNER" al primo posto, altrimenti il record (es. "6-1" o "5-1-1").
-function resultLabels(wins: number, losses: number, placement: number | null, players: number | null) {
-  const winner = placement === 1;
+// Il risultato dipende dalle sconfitte: nessuna = "WINNER", altrimenti "X-1", "X-2"… (il numero dopo la X sono le sconfitte).
+function resultLabels(losses: number, placement: number | null, players: number | null) {
+  const winner = losses === 0;
   return {
-    result_label: winner ? "WINNER" : `${wins}-${losses}`,
+    result_label: winner ? "WINNER" : `X-${losses}`,
     result_winner: winner,
     placement_text: placement ? `${placement}° ${players ? `su ${players}` : ""}`.trim() : null,
   };
@@ -203,7 +203,7 @@ export async function buildParticipationImage(supabase: Supabase, id: string): P
       title: who?.alias || who?.display_name || "Giocatore",
       leader: { code: leader.card_code, name: leader.name, colors: leader.colors, image_path: leader.image_path },
       cards,
-      ...resultLabels(p.wins, p.losses, p.placement, p.players_count),
+      ...resultLabels(p.losses, p.placement, p.players_count),
       tournament: p.tournaments?.title ?? p.standalone_label,
       date: fmtDate(p.tournaments?.starts_at ?? p.played_on),
       shop,
@@ -257,7 +257,7 @@ export async function buildTournamentResultImage(supabase: Supabase, id: string)
       title: r.player_name,
       leader: { code: leader.card_code, name: leader.name, colors: leader.colors, image_path: leader.image_path },
       cards,
-      ...resultLabels(r.wins, r.losses, r.placement, t?.max_players ?? null),
+      ...resultLabels(r.losses, r.placement, t?.max_players ?? null),
       tournament: t?.title ?? null,
       date: t ? fmtDate(t.starts_at) : null,
       shop: shopOf(t?.shops),

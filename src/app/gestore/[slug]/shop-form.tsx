@@ -20,6 +20,7 @@ export type ShopValues = {
   discord: string;
   lat: string;
   lng: string;
+  bandai_organizer_id: string;
 };
 
 const field = "mt-1 block w-full border-[3px] border-ink bg-white px-3 py-2";
@@ -126,6 +127,22 @@ export function ShopForm({
       <label className={label}>
         Descrizione
         <textarea name="description" rows={4} maxLength={1000} defaultValue={initial.description} className={field} />
+      </label>
+
+      <label className={label}>
+        ID organizzatore BANDAI TCG+ (facoltativo)
+        <input
+          name="bandai_organizer_id"
+          inputMode="numeric"
+          pattern="[0-9]{1,12}"
+          maxLength={12}
+          defaultValue={initial.bandai_organizer_id}
+          className={field}
+        />
+        <span className="mt-1 block text-xs font-normal normal-case">
+          Se lo scrivi, i tuoi eventi di BANDAI TCG+ compaiono qui come tornei del negozio. Lasciandolo vuoto non compare
+          nulla; togliendolo, i tornei già importati restano.
+        </span>
       </label>
 
       <LocationPicker initialLat={initial.lat} initialLng={initial.lng} target={target} />

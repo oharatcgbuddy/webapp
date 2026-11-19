@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { romeLocalToIso } from "@/lib/datetime";
 import { BANDAI_LINK_ERROR, BANDAI_SOURCE, parseBandaiEventLink } from "@/lib/bandai";
 import { parseShopFields } from "@/lib/shop-fields";
+import { parseBandaiOrganizerId, saveBandaiOrganizer } from "@/lib/shop-external-ids";
 import { canManageShop, isAdmin } from "@/lib/shop-access";
 import { shopLogoPathOk } from "@/lib/shop-logo";
 
@@ -47,6 +48,8 @@ export async function updateShop(slug: string, _prev: ActionState, fd: FormData)
 
   const parsed = parseShopFields(fd);
   if ("error" in parsed) return { error: parsed.error };
+  const organizer = parseBandaiOrganizerId(fd);
+  if ("error" in organizer) return { error: organizer.error };
 
   const { data, error } = await ctx.supabase
     .from("shops")
@@ -54,6 +57,11 @@ export async function updateShop(slug: string, _prev: ActionState, fd: FormData)
     .eq("id", ctx.shopId)
     .select("id");
   if (error || !data || data.length === 0) return { error: "Non sono riuscito a salvare le modifiche." };
+
+  if (organizer.value !== undefined) {
+    const orgError = await saveBandaiOrganizer(ctx.supabase, ctx.shopId, organizer.value);
+    if (orgError) return { error: `Pagina salvata, ma: ${orgError}` };
+  }
 
   revalidatePath(`/gestore/${slug}`);
   revalidatePath(`/negozi/${slug}`);

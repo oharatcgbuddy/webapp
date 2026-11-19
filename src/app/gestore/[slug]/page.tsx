@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { canManageShop } from "@/lib/shop-access";
 import { LogoUpload } from "./logo-upload";
 import { ShopForm } from "./shop-form";
+import { loadBandaiOrganizerId } from "@/lib/shop-external-ids";
 import { updateShop } from "./actions";
 
 type ShopRow = {
@@ -84,6 +85,7 @@ async function Manage({
     .overrideTypes<TournamentRow[], { merge: false }>();
 
   const social = shop.social ?? {};
+  const bandaiOrganizerId = await loadBandaiOrganizerId(supabase, shop.id);
 
   return (
     <main className="space-y-6 p-4">
@@ -142,6 +144,7 @@ async function Manage({
             discord: social.discord ?? "",
             lat: shop.lat?.toString() ?? "",
             lng: shop.lng?.toString() ?? "",
+            bandai_organizer_id: bandaiOrganizerId,
           }}
         />
       </section>

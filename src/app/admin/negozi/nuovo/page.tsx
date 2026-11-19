@@ -20,6 +20,7 @@ const EMPTY = {
   discord: "",
   lat: "",
   lng: "",
+  bandai_organizer_id: "",
 };
 
 async function NewShop() {

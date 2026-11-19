@@ -1,4 +1,5 @@
-// Sincronizza nel database i tornei di BANDAI TCG+ dei locali che hanno un `bandai_organizer_id`.
+// Sincronizza nel database i tornei di BANDAI TCG+ dei locali che hanno un ID organizzatore (tabella shop_external_ids,
+// che il gestore compila dal modulo del proprio negozio).
 // Da lanciare A MANO dal proprio PC (serve il login a TCG+ in Chrome, vedi bandai-events-lib.mjs).
 //
 // Uso (la chiave di servizio si passa solo da riga di comando: non va scritta in nessun file):
@@ -9,7 +10,8 @@
 // Lo stesso comando vale per dev e prod: cambiano solo URL e chiave.
 //
 // Opzioni:
-//   --link slug=ID      collega un locale già nel database al suo organizer_id di TCG+ (si può ripetere)
+//   --link slug=ID      collega un locale già nel database al suo organizer_id di TCG+ (si può ripetere; di norma lo
+//                       scrive il gestore nel proprio modulo)
 //   --add ID            crea il locale partendo dai dati dei suoi eventi su TCG+ (si può ripetere)
 //   --only ID           sincronizza solo questo organizer_id (si può ripetere); senza, tutti i locali collegati
 //   --from AAAA-MM-GG   scarica solo gli eventi da questa data
@@ -125,23 +127,29 @@ async function main() {
 
   const tcg = must(await db.from("tcgs").select("id").eq("slug", "onepiece").single(), "tcgs");
 
-  // 1. Collegamenti locale ↔ organizer_id.
-  let shops = must(await db.from("shops").select("id, slug, name, status, bandai_organizer_id"), "shops");
+  // 1. Collegamenti locale ↔ organizer_id (tabella shop_external_ids: li scrive il gestore dal proprio modulo
+  //    oppure questo script con --link / --add).
+  const shops = must(await db.from("shops").select("id, slug, name, status"), "shops");
+  const links = must(await db.from("shop_external_ids").select("shop_id, external_id").eq("source", SOURCE), "shop_external_ids");
+  const orgOfShop = new Map(links.map((x) => [x.shop_id, x.external_id]));
+  const shopOfOrg = new Map(links.map((x) => [x.external_id, x.shop_id]));
   for (const l of args.link) {
     const [slug, id] = l.split("=");
     const shop = shops.find((s) => s.slug === slug);
     if (!shop) throw new Error(`--link: nessun locale con slug "${slug}"`);
-    const other = shops.find((s) => s.bandai_organizer_id === id && s.id !== shop.id);
-    if (other) throw new Error(`--link: l'organizer ${id} è già di "${other.slug}"`);
-    if (shop.bandai_organizer_id && shop.bandai_organizer_id !== id) throw new Error(`--link: "${slug}" ha già l'organizer ${shop.bandai_organizer_id}`);
-    console.log(`collega  ${slug} → organizer ${id}${shop.bandai_organizer_id === id ? " (già collegato)" : ""}`);
-    if (args.go && shop.bandai_organizer_id !== id) must(await db.from("shops").update({ bandai_organizer_id: id }).eq("id", shop.id), `collegamento ${slug}`);
-    shop.bandai_organizer_id = id;
+    const otherId = shopOfOrg.get(id);
+    if (otherId && otherId !== shop.id) throw new Error(`--link: l'organizer ${id} è già di "${shops.find((s) => s.id === otherId)?.slug}"`);
+    const current = orgOfShop.get(shop.id);
+    if (current && current !== id) throw new Error(`--link: "${slug}" ha già l'organizer ${current}`);
+    console.log(`collega  ${slug} → organizer ${id}${current === id ? " (già collegato)" : ""}`);
+    if (args.go && current !== id) must(await db.from("shop_external_ids").insert({ shop_id: shop.id, source: SOURCE, external_id: id }), `collegamento ${slug}`);
+    orgOfShop.set(shop.id, id);
+    shopOfOrg.set(id, shop.id);
   }
 
   // 2. Organizzatori da sincronizzare: i locali collegati + quelli da creare con --add.
   const targets = new Map(); // organizer_id → { shop | null }
-  for (const s of shops) if (s.bandai_organizer_id) targets.set(s.bandai_organizer_id, { shop: s });
+  for (const [id, shopId] of shopOfOrg) targets.set(id, { shop: shops.find((s) => s.id === shopId) });
   for (const id of args.add) if (!targets.has(id)) targets.set(id, { shop: null });
   const wanted = args.only.length ? args.only : [...targets.keys()];
   for (const id of wanted) if (!targets.has(id)) throw new Error(`--only ${id}: nessun locale collegato e non è in --add`);
@@ -168,7 +176,14 @@ async function main() {
   const now = Date.now();
   for (const id of wanted) {
     const t = targets.get(id);
-    if (t.shop) continue;
+    if (t.shop) {
+      const org = fetched.get(id)?.[0]?.organizer_name;
+      const norm = (x) => (x ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (org && !norm(t.shop.name).includes(norm(org)) && !norm(org).includes(norm(t.shop.name))) {
+        console.log(`\nATTENZIONE  organizer ${id}: su TCG+ si chiama "${org}", il locale qui è "${t.shop.name}". Controlla che l'ID sia suo.`);
+      }
+      continue;
+    }
     const events = fetched.get(id);
     if (!events.length) {
       console.log(`\nSALTATO  organizer ${id}: nessun evento, non so con che dati creare il locale`);
@@ -183,10 +198,11 @@ async function main() {
     }
     console.log(`\nNUOVO LOCALE  ${r.shop.name} — ${r.shop.address ?? "?"}, ${r.shop.city} (${r.shop.province}) · ${r.shop.status} · slug ${r.shop.slug}`);
     if (args.go) {
-      const row = must(await db.from("shops").insert({ ...r.shop, bandai_organizer_id: id }).select("id, slug, name, status, bandai_organizer_id").single(), "creazione locale");
+      const row = must(await db.from("shops").insert(r.shop).select("id, slug, name, status").single(), "creazione locale");
+      must(await db.from("shop_external_ids").insert({ shop_id: row.id, source: SOURCE, external_id: id }), "collegamento del nuovo locale");
       t.shop = row;
     } else {
-      t.shop = { id: null, slug: r.shop.slug, name: r.shop.name, status: r.shop.status, bandai_organizer_id: id };
+      t.shop = { id: null, slug: r.shop.slug, name: r.shop.name, status: r.shop.status };
     }
   }
 

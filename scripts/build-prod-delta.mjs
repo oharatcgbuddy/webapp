@@ -22,11 +22,20 @@ const DEFAULT_VERSIONS = [
   "20261118170000", // participation_shop
   "20261118180000", // claim_community_tournaments
   "20261119161337", // shop_bandai_organizer
+  "20261119163352", // shop_external_ids
 ];
 // Se la condizione è vera la migrazione è già applicata a mano: si registra soltanto.
 const ALREADY = {
   "20261117164624":
     "exists (select 1 from information_schema.columns where table_schema = 'onepiece' and table_name = 'cards' and column_name = 'image_path')",
+  "20261119120000":
+    "exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = 'shop_tournament_players')",
+  "20261119161337":
+    "exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'shops' and column_name = 'bandai_organizer_id')",
+  "20261119180000":
+    "exists (select 1 from information_schema.columns where table_schema = 'onepiece' and table_name = 'matches' and column_name = 'went_first')",
+  "20261119163352":
+    "exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'shop_external_ids')",
 };
 
 const versions = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_VERSIONS;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { parseShopFields } from "@/lib/shop-fields";
+import { parseBandaiOrganizerId, saveBandaiOrganizer } from "@/lib/shop-external-ids";
 
 export type ActionState = { error?: string; ok?: boolean; message?: string; slug?: string };
 
@@ -16,6 +17,8 @@ export async function createShopAsAdmin(_prev: ActionState, fd: FormData): Promi
   const parsed = parseShopFields(fd);
   if ("error" in parsed) return { error: parsed.error };
   const v = parsed.values;
+  const organizer = parseBandaiOrganizerId(fd);
+  if ("error" in organizer) return { error: organizer.error };
 
   const supabase = await createClient();
   const { data: slug, error } = await supabase.rpc("admin_create_shop", {
@@ -32,6 +35,16 @@ export async function createShopAsAdmin(_prev: ActionState, fd: FormData): Promi
   });
   if (error || typeof slug !== "string") {
     return { error: error?.code === "42501" ? "Non sei autorizzato." : "Non sono riuscito a creare il negozio." };
+  }
+
+  // L'ID di BANDAI TCG+ si salva dopo la creazione (serve l'id del negozio nuovo, che si legge dallo slug).
+  if (organizer.value) {
+    const { data: created } = await supabase.from("shops").select("id").eq("slug", slug).maybeSingle();
+    const orgError = created ? await saveBandaiOrganizer(supabase, created.id as string, organizer.value) : "negozio non trovato";
+    if (orgError) {
+      revalidatePath("/admin/negozi");
+      return { error: `Negozio creato (${slug}), ma: ${orgError} Puoi aggiungere l'ID dalla sua pagina di gestione.` };
+    }
   }
 
   revalidatePath("/admin/negozi");

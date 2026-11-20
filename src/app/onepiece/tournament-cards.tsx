@@ -40,7 +40,17 @@ const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year:
 const dayOf = (d: Date) => dayFmt.format(d);
 
 // `regionals`: elenco dei Regionals (tornei senza negozio): niente filtro per distanza, che richiede le coordinate di un negozio.
-export function TournamentCards({ items, emptyHint, regionals = false }: { items: TournamentItem[]; emptyHint: string; regionals?: boolean }) {
+export function TournamentCards({
+  items,
+  emptyHint,
+  regionals = false,
+  province = "",
+}: {
+  items: TournamentItem[];
+  emptyHint: string;
+  regionals?: boolean;
+  province?: string;
+}) {
   const [user, setUser] = useState<LatLng | null>(null);
   const [radius, setRadius] = useState(50);
   const [locating, setLocating] = useState(false);
@@ -113,15 +123,31 @@ export function TournamentCards({ items, emptyHint, regionals = false }: { items
           />
         </label>
         {!regionals && (
-          <button
-            type="button"
-            onClick={locate}
-            disabled={locating}
-            aria-pressed={!!user}
-            className={`brutal-btn w-full disabled:opacity-60 ${user ? "bg-brand-blue" : "bg-white"}`}
-          >
-            {locating ? "Cerco la tua posizione…" : user ? "📍 Vicino a me: attivo" : "📍 Vicino a me"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={locate}
+              disabled={locating}
+              aria-pressed={!!user}
+              className={`brutal-btn min-w-0 flex-1 px-2 disabled:opacity-60 ${user ? "bg-brand-blue" : "bg-white"}`}
+            >
+              {locating ? "Cerco…" : user ? "📍 Vicino a me: sì" : "📍 Vicino a me"}
+            </button>
+            {/* La provincia è un filtro del server (si ricarica la pagina): il modulo è nello stesso riquadro degli altri. */}
+            <form action="/" className="flex gap-2">
+              <input
+                name="provincia"
+                defaultValue={province}
+                maxLength={2}
+                placeholder="Prov."
+                aria-label="Provincia (es. MI)"
+                className="block w-[4.5rem] min-w-0 border-[3px] border-ink bg-white px-2 py-2 text-center uppercase"
+              />
+              <button type="submit" className="brutal-btn px-3">
+                Filtra
+              </button>
+            </form>
+          </div>
         )}
         {user && !regionals && (
           <label className="block text-sm font-bold">
@@ -144,6 +170,14 @@ export function TournamentCards({ items, emptyHint, regionals = false }: { items
             {error}
           </p>
         )}
+        {/* I Regionals sono tornei senza negozio: con questo filtro l'elenco mostra solo quelli. */}
+        <Link
+          href={regionals ? "/" : "/?tipo=regionals"}
+          aria-pressed={regionals}
+          className={`brutal-btn w-full ${regionals ? "bg-brand-yellow" : "bg-white"}`}
+        >
+          {regionals ? "Regionals: attivo" : "Regionals"}
+        </Link>
       </div>
 
       {rows.length > 0 ? (

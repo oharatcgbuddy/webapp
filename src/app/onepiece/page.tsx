@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
-import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentCards, type TournamentItem } from "./tournament-cards";
@@ -46,35 +45,10 @@ async function TournamentList({
 
   return (
     <main className="space-y-4 p-4">
-      <Link
-        href={regionals ? "/" : "/?tipo=regionals"}
-        aria-pressed={regionals}
-        className={`brutal-btn w-full ${regionals ? "bg-brand-yellow" : "bg-white"}`}
-      >
-        {regionals ? "Regionals: attivo (tocca per tornare ai tornei dei negozi)" : "Regionals"}
-      </Link>
-
-      {!regionals && (
-        <form className="brutal-card flex items-end gap-2 p-3" action="/">
-          <label className="flex-1 text-sm font-bold">
-            Provincia
-            <input
-              name="provincia"
-              defaultValue={province ?? ""}
-              maxLength={2}
-              placeholder="es. MI"
-              className="mt-1 block w-full border-[3px] border-ink px-2 py-2 uppercase"
-            />
-          </label>
-          <button type="submit" className="brutal-btn">
-            Filtra
-          </button>
-        </form>
-      )}
-
       <TournamentCards
         items={data ?? []}
         regionals={regionals}
+        province={province ?? ""}
         emptyHint={
           regionals
             ? "Nessun Regional in programma: torna a controllare presto."

@@ -503,7 +503,7 @@ def draw_all(req, images, app_logo, shop_logo, total_h=None):
     d.rectangle((0, S(fy), S(W), S(fy + BORDER)), fill=INK)
     mid = fy + foot_h / 2 + 2
     text(d, (PAD, mid), "ONE PIECE CARD GAME", font(22, 700), anchor="lm")
-    text(d, (W - PAD, mid), "ohara-tcg-buddy.vercel.app", font(22, 600), anchor="rm")
+    text(d, (W - PAD, mid), "ohara-tcg-buddy.it", font(22, 600), anchor="rm")
     return canvas, H, natural
 
 

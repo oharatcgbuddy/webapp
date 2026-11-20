@@ -12,6 +12,8 @@ export type TournamentItem = {
   entry_fee_cents: number | null;
   max_players: number | null;
   format_slug: string | null;
+  kind: "shop" | "regional";
+  venue: string | null;
   shops: {
     name: string;
     city: string | null;
@@ -37,7 +39,8 @@ const RADII = [10, 25, 50, 100, 0]; // 0 = nessun limite
 const dayFmt = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome", year: "numeric", month: "2-digit", day: "2-digit" });
 const dayOf = (d: Date) => dayFmt.format(d);
 
-export function TournamentCards({ items, emptyHint }: { items: TournamentItem[]; emptyHint: string }) {
+// `regionals`: elenco dei Regionals (tornei senza negozio): niente filtro per distanza, che richiede le coordinate di un negozio.
+export function TournamentCards({ items, emptyHint, regionals = false }: { items: TournamentItem[]; emptyHint: string; regionals?: boolean }) {
   const [user, setUser] = useState<LatLng | null>(null);
   const [radius, setRadius] = useState(50);
   const [locating, setLocating] = useState(false);
@@ -76,11 +79,11 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
       const km = user && s && s.lat != null && s.lng != null ? distanceKm(user, { lat: s.lat, lng: s.lng }) : null;
       return { t, km };
     });
-    if (!user) return withKm;
+    if (!user || regionals) return withKm;
     return withKm
       .filter((r) => r.km !== null && (radius === 0 || r.km <= radius))
       .sort((a, b) => (a.km as number) - (b.km as number));
-  }, [items, user, radius, day]);
+  }, [items, user, radius, day, regionals]);
 
   return (
     <>
@@ -109,16 +112,18 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
             className="mt-1 block w-full min-w-0 max-w-full appearance-none border-[3px] border-ink bg-white px-2 py-2"
           />
         </label>
-        <button
-          type="button"
-          onClick={locate}
-          disabled={locating}
-          aria-pressed={!!user}
-          className={`brutal-btn w-full disabled:opacity-60 ${user ? "bg-brand-blue" : "bg-white"}`}
-        >
-          {locating ? "Cerco la tua posizione…" : user ? "📍 Vicino a me: attivo" : "📍 Vicino a me"}
-        </button>
-        {user && (
+        {!regionals && (
+          <button
+            type="button"
+            onClick={locate}
+            disabled={locating}
+            aria-pressed={!!user}
+            className={`brutal-btn w-full disabled:opacity-60 ${user ? "bg-brand-blue" : "bg-white"}`}
+          >
+            {locating ? "Cerco la tua posizione…" : user ? "📍 Vicino a me: attivo" : "📍 Vicino a me"}
+          </button>
+        )}
+        {user && !regionals && (
           <label className="block text-sm font-bold">
             Distanza massima
             <select
@@ -155,12 +160,13 @@ export function TournamentCards({ items, emptyHint }: { items: TournamentItem[];
                     </Link>
                   </h2>
                   <p className="text-sm">
-                    {t.shops ? `${t.shops.name}${t.shops.city ? ` · ${t.shops.city}` : ""}` : "Torneo libero"}
+                    {t.shops ? `${t.shops.name}${t.shops.city ? ` · ${t.shops.city}` : ""}` : (t.venue ?? "Torneo libero")}
                   </p>
                 </div>
               </div>
-              {(km !== null || t.format_slug) && (
+              {(km !== null || t.format_slug || t.kind === "regional") && (
                 <p className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
+                  {t.kind === "regional" && <span className="border-2 border-ink bg-brand-yellow px-2 py-1">Regional</span>}
                   {km !== null && <span className="border-2 border-ink bg-brand-pink px-2 py-1">{formatKm(km)}</span>}
                   {t.format_slug && <span className="border-2 border-ink bg-brand-blue px-2 py-1">{t.format_slug}</span>}
                 </p>

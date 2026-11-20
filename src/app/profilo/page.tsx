@@ -60,6 +60,11 @@ async function Account() {
         </Link>
       )}
       {me?.is_admin && (
+        <Link href="/admin/tornei" className="brutal-btn w-full bg-brand-blue">
+          Area admin · Regionals
+        </Link>
+      )}
+      {me?.is_admin && (
         <Link href="/onepiece/admin/meta" className="brutal-btn w-full bg-brand-blue">
           Area admin · leader in meta (One Piece)
         </Link>

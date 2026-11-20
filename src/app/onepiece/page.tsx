@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { connection } from "next/server";
+import Link from "next/link";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { TournamentCards, type TournamentItem } from "./tournament-cards";
@@ -7,21 +8,24 @@ import { TournamentCards, type TournamentItem } from "./tournament-cards";
 async function TournamentList({
   searchParams,
 }: {
-  searchParams: Promise<{ provincia?: string }>;
+  searchParams: Promise<{ provincia?: string; tipo?: string }>;
 }) {
   await connection(); // usa l'ora corrente: niente prerender
-  const { provincia } = await searchParams;
-  const province = provincia?.trim().toUpperCase().slice(0, 2);
+  const { provincia, tipo } = await searchParams;
+  // I Regionals (tornei senza negozio, caricati dall'admin) si vedono solo con il filtro "Regionals".
+  const regionals = tipo === "regionals";
+  const province = regionals ? undefined : provincia?.trim().toUpperCase().slice(0, 2);
 
   const supabase = await createClient();
   let query = supabase
     .from("tournaments")
     .select(
-      `id, title, starts_at, entry_fee_cents, max_players, format_slug,
+      `id, title, starts_at, entry_fee_cents, max_players, format_slug, kind, venue,
        shops${province ? "!inner" : ""} (name, city, province, lat, lng, logo_url),
        tcgs!inner (slug)`,
     )
     .eq("tcgs.slug", "onepiece")
+    .eq("kind", regionals ? "regional" : "shop")
     .eq("status", "scheduled")
     .gte("starts_at", new Date().toISOString())
     .order("starts_at", { ascending: true })
@@ -42,25 +46,42 @@ async function TournamentList({
 
   return (
     <main className="space-y-4 p-4">
-      <form className="brutal-card flex items-end gap-2 p-3" action="/">
-        <label className="flex-1 text-sm font-bold">
-          Provincia
-          <input
-            name="provincia"
-            defaultValue={province ?? ""}
-            maxLength={2}
-            placeholder="es. MI"
-            className="mt-1 block w-full border-[3px] border-ink px-2 py-2 uppercase"
-          />
-        </label>
-        <button type="submit" className="brutal-btn">
-          Filtra
-        </button>
-      </form>
+      <Link
+        href={regionals ? "/" : "/?tipo=regionals"}
+        aria-pressed={regionals}
+        className={`brutal-btn w-full ${regionals ? "bg-brand-yellow" : "bg-white"}`}
+      >
+        {regionals ? "Regionals: attivo (tocca per tornare ai tornei dei negozi)" : "Regionals"}
+      </Link>
+
+      {!regionals && (
+        <form className="brutal-card flex items-end gap-2 p-3" action="/">
+          <label className="flex-1 text-sm font-bold">
+            Provincia
+            <input
+              name="provincia"
+              defaultValue={province ?? ""}
+              maxLength={2}
+              placeholder="es. MI"
+              className="mt-1 block w-full border-[3px] border-ink px-2 py-2 uppercase"
+            />
+          </label>
+          <button type="submit" className="brutal-btn">
+            Filtra
+          </button>
+        </form>
+      )}
 
       <TournamentCards
         items={data ?? []}
-        emptyHint={province ? "Prova a togliere il filtro provincia." : "Torna a controllare presto."}
+        regionals={regionals}
+        emptyHint={
+          regionals
+            ? "Nessun Regional in programma: torna a controllare presto."
+            : province
+              ? "Prova a togliere il filtro provincia."
+              : "Torna a controllare presto."
+        }
       />
     </main>
   );
@@ -71,7 +92,7 @@ export default function TorneiPage({ searchParams }: PageProps<"/onepiece">) {
     <>
       <PageHeader title="Tornei" subtitle="Prossimi tornei, per data" />
       <Suspense fallback={<main className="p-4">Caricamento…</main>}>
-        <TournamentList searchParams={searchParams as Promise<{ provincia?: string }>} />
+        <TournamentList searchParams={searchParams as Promise<{ provincia?: string; tipo?: string }>} />
       </Suspense>
     </>
   );

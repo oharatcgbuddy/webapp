@@ -17,6 +17,8 @@ type TournamentDetail = {
   notes: string | null;
   status: "scheduled" | "completed" | "cancelled";
   external_id: string | null;
+  kind: "shop" | "regional";
+  venue: string | null;
   shops: {
     slug: string;
     name: string;
@@ -77,7 +79,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { data, error } = await supabase
     .from("tournaments")
     .select(
-      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status, external_id,
+      `id, title, starts_at, entry_fee_cents, max_players, format_slug, prizes, notes, status, external_id, kind, venue,
        shops (slug, name, address, city, province, phone, website),
        tcgs!inner (name, slug)`,
     )
@@ -110,14 +112,16 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       <div className="brutal-card p-4">
         <p className="text-sm font-bold uppercase">{dateFmt.format(new Date(data.starts_at))}</p>
         <h2 className="text-2xl font-black leading-tight">{data.title}</h2>
-        <p className="mt-1 inline-block border-2 border-ink bg-brand-yellow px-2 py-1 text-xs font-bold">
-          {STATUS_LABEL[data.status]}
+        <p className="mt-1 flex flex-wrap gap-2 text-xs font-bold">
+          {data.kind === "regional" && <span className="border-2 border-ink bg-brand-pink px-2 py-1">Regional</span>}
+          <span className="border-2 border-ink bg-brand-yellow px-2 py-1">{STATUS_LABEL[data.status]}</span>
         </p>
       </div>
 
       <dl className="brutal-card px-4 py-2">
         <Row label="Gioco" value={data.tcgs?.name ?? "—"} />
         <Row label="Formato" value={data.format_slug ?? "—"} />
+        {data.kind === "regional" && <Row label="Luogo" value={data.venue ?? "—"} />}
         <Row label="Costo" value={euro(data.entry_fee_cents)} />
         <Row label="Posti" value={data.max_players ?? "—"} />
       </dl>

@@ -24,6 +24,7 @@ const DEFAULT_VERSIONS = [
   "20261119161337", // shop_bandai_organizer
   "20261119163352", // shop_external_ids
   "20261119190000", // drop_shops_bandai_organizer_id
+  "20261120120000", // regional_tournaments
 ];
 // Se la condizione è vera la migrazione è già applicata a mano: si registra soltanto.
 const ALREADY = {
@@ -39,6 +40,8 @@ const ALREADY = {
     "exists (select 1 from information_schema.tables where table_schema = 'public' and table_name = 'shop_external_ids')",
   "20261119190000":
     "not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'shops' and column_name = 'bandai_organizer_id')",
+  "20261120120000":
+    "exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tournaments' and column_name = 'kind')",
 };
 
 const versions = process.argv.slice(2).length ? process.argv.slice(2) : DEFAULT_VERSIONS;

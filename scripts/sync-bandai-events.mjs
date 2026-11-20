@@ -4,7 +4,9 @@
 //
 // Uso (la chiave di servizio si passa solo da riga di comando: non va scritta in nessun file):
 //   SUPABASE_URL=https://<progetto>.supabase.co SUPABASE_SERVICE_ROLE_KEY=<chiave> \
-//     node scripts/sync-bandai-events.mjs [--link slug=ID …] [--add ID …] [--go]
+//     node scripts/sync-bandai-events.mjs [--all | --add ID … | --link slug=ID … | --only ID …] [--go]
+//
+// Di base si sincronizzano SOLO i locali indicati (--add, --link, --only); per tutti quelli collegati serve --all.
 //
 // Senza --go è una PROVA: scarica gli eventi, controlla tutto, mostra cosa farebbe e non scrive niente.
 // Lo stesso comando vale per dev e prod: cambiano solo URL e chiave.
@@ -13,7 +15,8 @@
 //   --link slug=ID      collega un locale già nel database al suo organizer_id di TCG+ (si può ripetere; di norma lo
 //                       scrive il gestore nel proprio modulo)
 //   --add ID            crea il locale partendo dai dati dei suoi eventi su TCG+ (si può ripetere)
-//   --only ID           sincronizza solo questo organizer_id (si può ripetere); senza, tutti i locali collegati
+//   --only ID           sincronizza questo organizer_id già collegato (si può ripetere)
+//   --all               sincronizza tutti i locali collegati (senza, solo quelli indicati con --add / --link / --only)
 //   --from AAAA-MM-GG   scarica solo gli eventi da questa data
 //   --shop-status       stato dei locali creati con --add: approved (predefinito) o pending
 //   --with-phone        copia anche il telefono pubblicato su TCG+ nella scheda del locale (predefinito: no)
@@ -35,11 +38,12 @@ import { DELAY_MS, fetchEvents, openBandai, sleep } from "./bandai-events-lib.mj
 const SOURCE = "bandai_tcg_plus";
 
 function parseArgs(argv) {
-  const o = { go: false, link: [], add: [], only: [], from: null, shopStatus: "approved", withPhone: false, game: null };
+  const o = { go: false, all: false, link: [], add: [], only: [], from: null, shopStatus: "approved", withPhone: false, game: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const v = () => argv[++i];
     if (a === "--go") o.go = true;
+    else if (a === "--all") o.all = true;
     else if (a === "--link") o.link.push(v());
     else if (a === "--add") o.add.push(v());
     else if (a === "--only") o.only.push(v());
@@ -147,14 +151,19 @@ async function main() {
     shopOfOrg.set(id, shop.id);
   }
 
-  // 2. Organizzatori da sincronizzare: i locali collegati + quelli da creare con --add.
+  // 2. Organizzatori da sincronizzare. Di base solo quelli indicati (--add, --link, --only); con --all tutti i locali collegati.
   const targets = new Map(); // organizer_id → { shop | null }
   for (const [id, shopId] of shopOfOrg) targets.set(id, { shop: shops.find((s) => s.id === shopId) });
   for (const id of args.add) if (!targets.has(id)) targets.set(id, { shop: null });
-  const wanted = args.only.length ? args.only : [...targets.keys()];
-  for (const id of wanted) if (!targets.has(id)) throw new Error(`--only ${id}: nessun locale collegato e non è in --add`);
+  const indicated = [...new Set([...args.add, ...args.link.map((l) => l.split("=")[1]), ...args.only])];
+  for (const id of indicated) if (!targets.has(id)) throw new Error(`--only ${id}: nessun locale collegato e non è in --add`);
+  const wanted = args.all ? [...targets.keys()] : indicated;
   if (!wanted.length) {
-    console.log("Nessun locale collegato a TCG+: usa --link slug=ID oppure --add ID.");
+    console.log(
+      args.all
+        ? "Nessun locale collegato a TCG+: usa --link slug=ID oppure --add ID."
+        : "Non hai indicato nessun locale: usa --add ID, --link slug=ID o --only ID per uno solo, oppure --all per tutti i locali collegati.",
+    );
     return;
   }
 

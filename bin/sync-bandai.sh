@@ -3,14 +3,16 @@
 # Legge URL e chiave di servizio da .env.dev o .env.prod (file ignorati da git, vedi .env.example).
 #
 # Uso:
-#   bin/sync-bandai.sh dev                 prova su dev (non scrive niente)
-#   bin/sync-bandai.sh dev --go            scrive su dev
-#   bin/sync-bandai.sh prod                prova su prod
-#   bin/sync-bandai.sh prod --go           scrive su prod (chiede conferma)
+#   bin/sync-bandai.sh dev --all           prova su dev di tutti i locali collegati (non scrive niente)
+#   bin/sync-bandai.sh dev --all --go      scrive su dev
+#   bin/sync-bandai.sh prod --all          prova su prod
+#   bin/sync-bandai.sh prod --all --go     scrive su prod (chiede conferma)
 #
-# Qualunque altro argomento passa a scripts/sync-bandai-events.mjs, per esempio:
-#   bin/sync-bandai.sh prod --link <slug>=<ID> --add <ID> --only <ID> --from 2026-12-01
-# I collegamenti (--link / --add) bastano una volta: poi sono nel database e basta il comando senza argomenti.
+# Senza --all si sincronizzano solo i locali indicati; qualunque argomento passa a scripts/sync-bandai-events.mjs:
+#   bin/sync-bandai.sh prod --add <ID>               aggiunge un locale nuovo
+#   bin/sync-bandai.sh prod --only <ID> --from 2026-12-01   risincronizza un solo locale già collegato
+#   bin/sync-bandai.sh prod --link <slug>=<ID>
+# I collegamenti (--link / --add) bastano una volta: poi sono nel database e basta --all.
 
 set -euo pipefail
 

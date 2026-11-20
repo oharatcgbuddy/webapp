@@ -22,19 +22,23 @@ const STATUS = {
   rejected: { text: "Rifiutato", cls: "bg-brand-red" },
 } as const;
 
-async function Shops() {
+async function Shops({ searchParams }: { searchParams: Promise<{ q?: string | string[] }> }) {
   await connection(); // il controllo del token usa l'ora corrente: niente prerender
+  const { q: rawQ } = await searchParams;
+  // Via i caratteri che hanno un significato nel filtro di PostgREST o nel LIKE.
+  const q = (Array.isArray(rawQ) ? rawQ[0] : rawQ ?? "").replace(/[,()%_*\\]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60);
   const supabase = await createClient();
   const { data: auth } = await supabase.auth.getUser();
   // Pagina riservata agli admin: per gli altri non esiste.
   if (!(await isAdmin(supabase, auth.user?.id ?? ""))) notFound();
 
-  const { data, error } = await supabase
+  let query = supabase
     .from("shops")
     .select("slug, name, city, province, status, lat, shop_members(count)")
     .order("name")
-    .limit(300)
-    .overrideTypes<Row[], { merge: false }>();
+    .limit(300);
+  if (q) query = query.or(`name.ilike.%${q}%,city.ilike.%${q}%,slug.ilike.%${q}%`);
+  const { data, error } = await query.overrideTypes<Row[], { merge: false }>();
 
   if (error) {
     return (
@@ -47,9 +51,33 @@ async function Shops() {
   const shops = data ?? [];
   return (
     <>
-      <p className="text-sm font-medium">{shops.length} negozi</p>
+      <form action="/admin/negozi" className="flex gap-2">
+        <input
+          type="search"
+          name="q"
+          defaultValue={q}
+          maxLength={60}
+          placeholder="Cerca per nome, città o slug"
+          aria-label="Cerca un negozio"
+          className="block min-w-0 flex-1 border-[3px] border-ink bg-white px-3 py-2"
+        />
+        <button type="submit" className="brutal-btn bg-brand-yellow px-4">
+          Cerca
+        </button>
+      </form>
+      <p className="text-sm font-medium">
+        {shops.length} negozi{q ? ` per "${q}"` : ""}
+        {q && (
+          <>
+            {" · "}
+            <Link href="/admin/negozi" className="underline">
+              Azzera
+            </Link>
+          </>
+        )}
+      </p>
       {shops.length === 0 ? (
-        <p className="brutal-card p-4 text-sm">Nessun negozio ancora.</p>
+        <p className="brutal-card p-4 text-sm">{q ? "Nessun negozio trovato." : "Nessun negozio ancora."}</p>
       ) : (
         <ul className="space-y-3">
           {shops.map((s) => {
@@ -82,7 +110,7 @@ async function Shops() {
   );
 }
 
-export default function AdminShopsPage() {
+export default function AdminShopsPage({ searchParams }: PageProps<"/admin/negozi">) {
   return (
     <>
       <PageHeader title="Negozi" subtitle="Area admin" />
@@ -91,7 +119,7 @@ export default function AdminShopsPage() {
           + Nuovo negozio
         </Link>
         <Suspense fallback={<p>Caricamento…</p>}>
-          <Shops />
+          <Shops searchParams={searchParams as Promise<{ q?: string | string[] }>} />
         </Suspense>
       </main>
     </>

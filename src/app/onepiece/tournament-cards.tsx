@@ -134,7 +134,7 @@ export function TournamentCards({
               {locating ? "Cerco…" : user ? "📍 Vicino a me: sì" : "📍 Vicino a me"}
             </button>
             {/* La provincia è un filtro del server (si ricarica la pagina): il modulo è nello stesso riquadro degli altri. */}
-            <form action="/" className="flex gap-2">
+            <form action="/onepiece" className="flex gap-2">
               <input
                 name="provincia"
                 defaultValue={province}
@@ -172,7 +172,7 @@ export function TournamentCards({
         )}
         {/* I Regionals sono tornei senza negozio: con questo filtro l'elenco mostra solo quelli. */}
         <Link
-          href={regionals ? "/" : "/?tipo=regionals"}
+          href={regionals ? "/onepiece" : "/onepiece?tipo=regionals"}
           aria-pressed={regionals}
           className={`brutal-btn w-full ${regionals ? "bg-brand-yellow" : "bg-white"}`}
         >

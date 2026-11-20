@@ -73,7 +73,7 @@ function parseRegional(fd: FormData) {
 
 function refresh() {
   revalidatePath("/admin/tornei");
-  revalidatePath("/");
+  revalidatePath("/onepiece");
 }
 
 export async function createRegional(_prev: ActionState, fd: FormData): Promise<ActionState> {

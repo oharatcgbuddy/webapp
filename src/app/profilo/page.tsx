@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { createClient } from "@/lib/supabase/server";
 import { AliasForm } from "./alias-form";
+import { appVersionLabel } from "@/lib/app-version";
 
 async function signOut() {
   "use server";
@@ -74,6 +75,9 @@ async function Account() {
           Esci
         </button>
       </form>
+      <p className="pt-2 text-center text-xs font-bold">
+        Ohara TCG Buddy · <span className="border-2 border-ink bg-brand-pink px-1 uppercase">Beta</span> · {appVersionLabel()}
+      </p>
     </main>
   );
 }

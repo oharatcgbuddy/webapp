@@ -1,6 +1,14 @@
+import { readFileSync } from "node:fs";
 import type { NextConfig } from "next";
 
+// Versione dell'app (da package.json) e commit del deploy, mostrati nel profilo.
+const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf8")) as { version: string };
+
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_APP_VERSION: version,
+    NEXT_PUBLIC_APP_COMMIT: (process.env.VERCEL_GIT_COMMIT_SHA ?? "").slice(0, 7),
+  },
   /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
